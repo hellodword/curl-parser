@@ -26,3 +26,5 @@ out/
 *.o
 *.a
 *.so
+result
+result-*

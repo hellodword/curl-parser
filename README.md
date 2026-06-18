@@ -51,6 +51,21 @@ To override the wasm compiler:
 WASM_CC="zig cc" python scripts/tasks.py build-wasm
 ```
 
+### Nix
+
+The flake pins nixpkgs and the upstream curl source used by `bootstrap`.
+It wraps the same `scripts/tasks.py` build and test commands; non-Nix users do
+not need a separate workflow or any flake-only feature.
+
+```bash
+nix develop
+nix build
+nix flake check
+```
+
+`nix build` compiles the native CLI, shared library, and wasm artifact.
+`nix flake check` runs lint, tests, and the wasm size budget.
+
 ## Input
 
 Only argv input is supported:
