@@ -189,8 +189,11 @@
 
     <script type="module">
       const sampleCommand =
-        "curl --http3 --json '{\"a\":1}' -H 'X-Demo: browser' https://example.com";
-      const wasmUrl = new URL("../../dist/curl_parser.wasm", import.meta.url);
+        "curl -vfLvsSviG4#01 google.com https://github.com";
+      const wasmUrls = [
+        new URL("../../dist/curl_parser.wasm", import.meta.url),
+        new URL("./dist/curl_parser.wasm", import.meta.url),
+      ];
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
@@ -400,12 +403,26 @@
         const imports = {
           wasi_snapshot_preview1: makeWasiImports(() => instance),
         };
-        const wasmBytes = await fetch(wasmUrl).then((response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to load ${wasmUrl.pathname}: ${response.status}`);
+        let wasmBytes = null;
+        let lastError = null;
+
+        for (const wasmUrl of wasmUrls) {
+          try {
+            const response = await fetch(wasmUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to load ${wasmUrl.pathname}: ${response.status}`);
+            }
+            wasmBytes = await response.arrayBuffer();
+            break;
+          } catch (error) {
+            lastError = error;
           }
-          return response.arrayBuffer();
-        });
+        }
+
+        if (!wasmBytes) {
+          throw lastError || new Error("Failed to load wasm");
+        }
+
         const instantiated = await WebAssembly.instantiate(wasmBytes, imports);
         instance = instantiated.instance;
         instance.exports._initialize?.();

@@ -1,0 +1,67 @@
+name: Publish Pages
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        shell: bash
+        run: |
+          sh <(curl -L https://nixos.org/nix/install) --daemon --yes
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          nix --version
+
+      - name: Build Pages assets
+        shell: bash
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          nix --extra-experimental-features "nix-command flakes" build .#default
+
+          rm -rf site
+          mkdir -p site/dist
+          cp result/share/curl-parser/wrappers/browser/index.html site/index.html
+          cp result/share/curl-parser/dist/curl_parser.wasm site/dist/curl_parser.wasm
+          touch site/.nojekyll
+
+      - name: Publish to pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin pages >/dev/null 2>&1; then
+            git worktree add -B pages pages-worktree origin/pages
+          else
+            git worktree add -b pages pages-worktree
+          fi
+
+          find pages-worktree -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R site/. pages-worktree/
+
+          cd pages-worktree
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No Pages changes to publish."
+            exit 0
+          fi
+
+          git commit -m "chore: publish github pages"
+          git push origin HEAD:pages
