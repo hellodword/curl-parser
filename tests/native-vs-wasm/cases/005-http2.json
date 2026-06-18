@@ -1,0 +1,4 @@
+{
+  "inputMode": "argv",
+  "argv": ["curl", "--http2", "https://example.com"]
+}

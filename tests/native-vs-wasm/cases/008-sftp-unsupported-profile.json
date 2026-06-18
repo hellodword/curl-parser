@@ -1,0 +1,15 @@
+{
+  "inputMode": "argv",
+  "argv": ["curl", "sftp://example.com/file"],
+  "parseMode": "strict",
+  "runtimeProfile": {
+    "curlVersion": "8.20.0",
+    "protocols": ["http", "https"],
+    "features": ["SSL", "HTTP2", "HTTP3"],
+    "compile": {
+      "availableOptions": null,
+      "disabledOptions": [],
+      "defines": []
+    }
+  }
+}

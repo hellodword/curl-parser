@@ -1,0 +1,4 @@
+{
+  "inputMode": "argv",
+  "argv": ["curl", "--no-progress-meter", "https://example.com"]
+}

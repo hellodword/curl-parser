@@ -1,0 +1,42 @@
+{
+  "$id": "https://example.invalid/schemas/parse-input.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser input",
+  "type": "object",
+  "required": ["argv"],
+  "properties": {
+    "inputMode": {
+      "type": "string",
+      "enum": ["argv"]
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "runtimeProfile": {
+      "$ref": "runtime-profile.schema.json"
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "loadDefaultCurlrc": {
+          "type": "boolean"
+        },
+        "allowHostFileRead": {
+          "type": "boolean"
+        },
+        "virtualFiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,9 @@
+{
+  "inputMode": "argv",
+  "argv": ["curl", "--config", "missing.conf"],
+  "options": {
+    "loadDefaultCurlrc": false,
+    "allowHostFileRead": false,
+    "virtualFiles": {}
+  }
+}

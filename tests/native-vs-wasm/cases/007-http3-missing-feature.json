@@ -1,0 +1,15 @@
+{
+  "inputMode": "argv",
+  "argv": ["curl", "--http3", "https://example.com"],
+  "parseMode": "strict",
+  "runtimeProfile": {
+    "curlVersion": "8.20.0",
+    "protocols": ["http", "https"],
+    "features": ["SSL", "HTTP2"],
+    "compile": {
+      "availableOptions": null,
+      "disabledOptions": [],
+      "defines": []
+    }
+  }
+}
