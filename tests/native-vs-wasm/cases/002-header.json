@@ -1,4 +1,0 @@
-{
-  "inputMode": "argv",
-  "argv": ["curl", "-H", "A: B", "https://example.com"]
-}
