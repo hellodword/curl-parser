@@ -68,7 +68,7 @@ jobs:
           nix develop --command python scripts/tasks.py bootstrap
           nix develop --command python scripts/tasks.py generate
           nix develop --command python scripts/tasks.py build-wasm
-          nix develop --command python scripts/tasks.py build-web
+          nix develop --command env CURL_PARSER_WEB_BASE=/curl-parser/ python scripts/tasks.py build-web
 
           rm -rf site
           cp -R apps/web-playground/dist site

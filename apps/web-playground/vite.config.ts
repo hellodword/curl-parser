@@ -4,6 +4,7 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: process.env.CURL_PARSER_WEB_BASE ?? "./",
   plugins: [vue()],
   resolve: {
     alias: {

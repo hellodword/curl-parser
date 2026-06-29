@@ -50,6 +50,24 @@ const html = await readFile("apps/web-playground/index.html", "utf8");
 assert(html.includes('<div id="app"></div>'));
 assert(html.includes('/src/main.ts'));
 assert.equal(html.includes("importmap"), false);
+const builtHtml = await readFile("apps/web-playground/dist/index.html", "utf8");
+assert.equal(builtHtml.includes('src="/assets'), false);
+assert.equal(builtHtml.includes('href="/assets'), false);
+assert(
+  builtHtml.includes('src="./assets') || builtHtml.includes('src="/curl-parser/assets'),
+  "built playground script path must be relative or Pages-prefixed",
+);
+assert(
+  builtHtml.includes('href="./assets') || builtHtml.includes('href="/curl-parser/assets'),
+  "built playground stylesheet path must be relative or Pages-prefixed",
+);
+
+const viteConfig = await readFile("apps/web-playground/vite.config.ts", "utf8");
+assert(viteConfig.includes("CURL_PARSER_WEB_BASE"));
+assert(viteConfig.includes('?? "./"'));
+
+const pagesWorkflow = await readFile(".github/workflows/pages.yml", "utf8");
+assert(pagesWorkflow.includes("CURL_PARSER_WEB_BASE=/curl-parser/"));
 
 const packageJson = JSON.parse(await readFile("apps/web-playground/package.json", "utf8"));
 assert.equal(packageJson.private, true);
@@ -92,6 +110,12 @@ assert(parserClient.includes("parseResult.ok && parseResult.ir"));
 
 const wasmBytes = await readFile("dist/curl_parser.wasm");
 const wasi = createBrowserWasiImports();
+const wasiModule = wasi.imports.wasi_snapshot_preview1;
+assert.equal(typeof wasiModule.random_get, "function");
+const fakeMemory = new WebAssembly.Memory({ initial: 1 });
+wasi.setInstance({ exports: { memory: fakeMemory } });
+assert.equal(wasiModule.random_get(32, 64), 0);
+assert.equal(wasiModule.random_get(fakeMemory.buffer.byteLength + 1, 1), 21);
 const parser = await createParser({
   wasmBytes,
   imports: wasi.imports,

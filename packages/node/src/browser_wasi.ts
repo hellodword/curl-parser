@@ -1,6 +1,8 @@
 const ERRNO_SUCCESS = 0;
 const ERRNO_BADF = 8;
+const ERRNO_FAULT = 21;
 const ERRNO_NOENT = 44;
+const RANDOM_GET_CHUNK_SIZE = 65536;
 
 type WasiFunction = (...args: number[]) => number | void;
 type WasiModule = Record<string, WasiFunction>;
@@ -20,6 +22,31 @@ function memoryFor(instance: WebAssembly.Instance | null): WebAssembly.Memory | 
 
 function writeU32(memory: WebAssembly.Memory, ptr: number, value: number): void {
   new DataView(memory.buffer).setUint32(ptr, value, true);
+}
+
+function randomGet(
+  getInstance: () => WebAssembly.Instance | null,
+  ptr: number,
+  len: number,
+): number {
+  const memory = memoryFor(getInstance());
+  if (!memory || ptr < 0 || len < 0 || ptr + len > memory.buffer.byteLength) {
+    return ERRNO_FAULT;
+  }
+
+  const bytes = new Uint8Array(memory.buffer, ptr, len);
+  const crypto = globalThis.crypto;
+  if (crypto?.getRandomValues) {
+    for (let offset = 0; offset < bytes.length; offset += RANDOM_GET_CHUNK_SIZE) {
+      crypto.getRandomValues(bytes.subarray(offset, offset + RANDOM_GET_CHUNK_SIZE));
+    }
+  } else {
+    for (let offset = 0; offset < bytes.length; offset += 1) {
+      bytes[offset] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  return ERRNO_SUCCESS;
 }
 
 function fdWrite(
@@ -78,6 +105,7 @@ export function createBrowserWasiImports(): BrowserWasiHost {
     proc_exit: (code: number) => {
       throw new Error(`wasm exited with status ${code}`);
     },
+    random_get: (ptr, len) => randomGet(() => instance, ptr, len),
   };
 
   return {
