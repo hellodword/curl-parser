@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: "master"
+          fetch-depth: 0
+
+      - name: Install Nix with official installer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y xz-utils
+
+          curl -L https://nixos.org/nix/install | sh -s -- --daemon
+
+          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          echo "NIX_REMOTE=daemon" >> "$GITHUB_ENV"
+
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+          nix --version
+
+      - name: Configure Nix
+        shell: bash
+        env:
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+
+          sudo sed -i \
+            -e '/^experimental-features[[:space:]]*=/d' \
+            -e '/^max-jobs[[:space:]]*=/d' \
+            -e '/^trusted-users[[:space:]]*=/d' \
+            -e '/^access-tokens[[:space:]]*=/d' \
+            /etc/nix/nix.conf
+
+          printf '%s\n' \
+            "experimental-features = nix-command flakes" \
+            "max-jobs = auto" \
+            "trusted-users = root ${USER}" \
+            "access-tokens = github.com=$GITHUB_ACCESS_TOKEN" \
+            | sudo tee -a /etc/nix/nix.conf
+
+          sudo systemctl restart nix-daemon
+
+          nix config show experimental-features
+          nix config show substituters
+
+      - name: Run flake check
+        shell: bash
+        run: nix flake check
+
+  quick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install system tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl git
+          curl -fsSL https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz | tar -xJ
+          echo "$PWD/zig-x86_64-linux-0.15.2" >> "$GITHUB_PATH"
+      - name: Install web dependencies
+        run: npm --prefix apps/web-playground ci
+      - name: Run quick path
+        shell: bash
+        run: |
+          export CC="zig cc"
+          export WASM_CC="zig cc"
+          export CURL_PARSER_SKIP_WEB_NPM_CI=1
+          python scripts/tasks.py doctor
+          python scripts/tasks.py bootstrap
+          python scripts/tasks.py generate
+          python scripts/tasks.py build-wasm
+          python scripts/tasks.py lint
+          python scripts/tasks.py test

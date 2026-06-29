@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "simple get",
+      "argv": ["curl", "https://example.com"],
+      "expected": { "url": "https://example.com", "method": "GET" }
+    },
+    {
+      "name": "implicit http url",
+      "argv": ["curl", "example.com"],
+      "expected": {
+        "url": "http://example.com",
+        "rawUrl": "example.com",
+        "urlResolution": {
+          "scheme": "http",
+          "source": "curl-default",
+          "normalized": "http://example.com"
+        },
+        "method": "GET"
+      }
+    },
+    {
+      "name": "hostname prefix url",
+      "argv": ["curl", "ftp.example.com/README"],
+      "expected": {
+        "url": "ftp://ftp.example.com/README",
+        "rawUrl": "ftp.example.com/README",
+        "urlResolution": {
+          "scheme": "ftp",
+          "source": "hostname-prefix",
+          "normalized": "ftp://ftp.example.com/README"
+        },
+        "method": "GET"
+      }
+    },
+    {
+      "name": "proto default url",
+      "argv": ["curl", "--proto-default", "https", "example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "rawUrl": "example.com",
+        "urlResolution": {
+          "scheme": "https",
+          "source": "proto-default",
+          "normalized": "https://example.com"
+        },
+        "method": "GET"
+      }
+    },
+    {
+      "name": "header",
+      "argv": ["curl", "-H", "accept: application/json", "https://example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "method": "GET",
+        "header": { "name": "accept", "value": "application/json" }
+      }
+    },
+    {
+      "name": "post data",
+      "argv": ["curl", "--data-raw", "hello", "https://example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "method": "POST",
+        "body": { "kind": "data-raw", "value": "hello" }
+      }
+    },
+    {
+      "name": "json body",
+      "argv": ["curl", "--json", "{\"ok\":true}", "https://example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "method": "POST",
+        "body": { "kind": "json", "value": "{\"ok\":true}" }
+      }
+    },
+    {
+      "name": "put override",
+      "argv": ["curl", "-X", "PUT", "--data-raw", "hello", "https://example.com"],
+      "expected": { "url": "https://example.com", "method": "PUT" }
+    },
+    {
+      "name": "basic auth",
+      "argv": ["curl", "-u", "u:p", "https://example.com"],
+      "expected": { "url": "https://example.com", "method": "GET", "authSensitive": true }
+    },
+    {
+      "name": "cookie header",
+      "argv": ["curl", "-b", "sid=abc", "https://example.com"],
+      "expected": { "url": "https://example.com", "method": "GET", "cookie": "sid=abc" }
+    },
+    {
+      "name": "proxy",
+      "argv": ["curl", "--proxy", "http://proxy:8080", "https://example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "method": "GET",
+        "proxy": "http://proxy:8080"
+      }
+    },
+    {
+      "name": "insecure tls",
+      "argv": ["curl", "-k", "https://example.com"],
+      "expected": { "url": "https://example.com", "method": "GET", "tlsVerify": false }
+    },
+    {
+      "name": "multipart",
+      "argv": ["curl", "-F", "a=b", "https://example.com"],
+      "expected": {
+        "url": "https://example.com",
+        "method": "POST",
+        "body": { "kind": "form", "value": "a=b" }
+      }
+    }
+  ]
+}

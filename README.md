@@ -1,96 +1,49 @@
 # curl-parser
 
-`curl-parser` parses curl argv into structured JSON by reusing the selected
-curl command-line parser source. It does not perform network transfers.
+`curl-parser` captures curl CLI behavior into stable JSON contracts and
+support-aware generated code. It reuses the selected curl command-line parser,
+does not execute network transfers while parsing, and does not read host files,
+stdin, environment variables, home directories, or default `.curlrc`.
 
-Scope:
-
-- Parse argv-form curl CLI syntax only.
-- Do not perform network transfers.
-- Do not read host files by default.
-- Use curl source version `curl-8_20_0`.
-- Build native and wasm artifacts through a configurable C compiler. The
-  default `CC`/`WASM_CC` is `zig cc`.
-
-Primary artifact:
-
-- `dist/curl_parser.wasm`
-
-Host examples:
-
-- `wrappers/node/`
-- `wrappers/python/`
-
-Schemas:
-
-- `schemas/parse-input.schema.json`
-- `schemas/parse-output.schema.json`
-- `schemas/runtime-profile.schema.json`
-
-## Build
+## Quick Start
 
 ```bash
+python scripts/tasks.py doctor
 python scripts/tasks.py bootstrap
 python scripts/tasks.py generate
 python scripts/tasks.py build-wasm
 python scripts/tasks.py test
 ```
 
-`bootstrap` downloads the selected curl source into `third_party/`. That
-directory is a local build input, not a git-tracked source tree.
-
-To override the native compiler:
-
-```bash
-CC=clang python scripts/tasks.py build-native
-```
-
-To override the wasm compiler:
-
-```bash
-WASM_CC="zig cc" python scripts/tasks.py build-wasm
-```
-
-### Nix
-
-The flake pins nixpkgs and the upstream curl source used by `bootstrap`.
-It wraps the same `scripts/tasks.py` build and test commands; non-Nix users do
-not need a separate workflow or any flake-only feature.
+The same commands run inside and outside Nix. With pinned tools:
 
 ```bash
 nix develop
-nix build
-nix flake check
+python scripts/tasks.py test
 ```
 
-`nix build` compiles the native CLI, shared library, and wasm artifact.
-`nix flake check` runs lint, tests, and the wasm size budget.
+## Public Surfaces
 
-## Input
+- Node SDK, browser SDK, and CLI: `packages/node`
+- Browser playground: `apps/web-playground`
 
-Only argv input is supported:
+## Documentation
 
-```json
-{
-  "inputMode": "argv",
-  "argv": ["curl", "--http3", "--json", "{\"a\":1}", "https://example.com"]
-}
-```
+- Documentation index: `docs/README.md`
+- API: `docs/api.md`
+- Targets: `docs/targets.md`
+- Maintenance: `docs/maintenance.md`
+- Contracts: `docs/contracts/ir-v1.md`, `docs/contracts/wasm-abi-v1.md`
 
-Shell command strings are intentionally out of scope. Callers that accept a
-command line must split it into argv before calling the parser.
+## Core Contracts
 
-## Wasm ABI
+- `schemas/parse-input.v1.schema.json`
+- `schemas/parse-output.v1.schema.json`
+- `schemas/curl-ir.v1.schema.json`
+- `schemas/diagnostics.v1.schema.json`
+- `schemas/generate-input.v1.schema.json`
+- `schemas/generate-output.v1.schema.json`
+- `schemas/runtime-profile.v1.schema.json`
+- `schemas/target-capabilities.v1.schema.json`
 
-The wasm module exports a stable C ABI:
-
-```c
-uint32_t curlparse_abi_version(void);
-uint32_t curlparse_alloc(uint32_t size);
-void curlparse_free(uint32_t ptr, uint32_t size);
-int32_t curlparse_parse(uint32_t input_ptr, uint32_t input_len, uint32_t out_pair_ptr);
-```
-
-The host writes UTF-8 JSON into wasm memory and receives an output
-`{ptr,len}` pair. curl parse failures are reported in output JSON, not as ABI
-return codes.
+The primary wasm artifact is `dist/curl_parser.wasm`.

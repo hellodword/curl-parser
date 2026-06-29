@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "js.undici",
+  "library": {
+    "name": "undici",
+    "ecosystem": "javascript",
+    "notes": "Node-oriented undici request target."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "undici accepts request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "undici supports explicit HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "undici supports request headers."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "undici supports raw request bodies."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "undici supports multipart bodies through FormData."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "undici can send basic auth through the Authorization header."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "undici can send explicit Cookie headers."
+    },
+    "proxy": {
+      "capability": "requires-runtime-helper",
+      "message": "undici proxy support uses runtime wiring through ProxyAgent."
+    },
+    "tls.verify": {
+      "capability": "native",
+      "message": "undici Agent can represent TLS verification settings."
+    },
+    "redirects": {
+      "capability": "native",
+      "message": "undici supports redirect behavior through request options."
+    },
+    "timeout": {
+      "capability": "native",
+      "message": "undici supports request timeout options."
+    },
+    "http.version.2": {
+      "capability": "unsupported",
+      "message": "undici does not expose curl-style HTTP/2 selection."
+    },
+    "http.version.3": {
+      "capability": "unsupported",
+      "message": "undici does not expose HTTP/3 selection."
+    },
+    "external-ref": {
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references."
+    }
+  }
+}

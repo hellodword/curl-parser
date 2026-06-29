@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "libcurl header",
+      "target": "c.libcurl",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
+      "files": ["main.c"],
+      "contains": ["curl_easy_setopt", "x-test: yes"],
+      "support": "exact"
+    },
+    {
+      "name": "libcurl ftp hostname prefix",
+      "target": "c.libcurl",
+      "argv": ["curl", "ftp.example.com/README"],
+      "files": ["main.c"],
+      "contains": ["CURLOPT_URL", "ftp://ftp.example.com/README"],
+      "support": "exact"
+    },
+    {
+      "name": "python multipart",
+      "target": "python.requests",
+      "argv": ["curl", "-F", "a=b", "https://example.com"],
+      "files": ["main.py"],
+      "contains": ["requests.Session()", "request_kwargs[\"files\"]"],
+      "support": "exact"
+    },
+    {
+      "name": "fetch body",
+      "target": "js.fetch",
+      "argv": ["curl", "--data-raw", "hello", "https://example.com"],
+      "files": ["main.js"],
+      "contains": ["await fetch(url, init)", "body: \"hello\""],
+      "support": "exact"
+    },
+    {
+      "name": "undici header",
+      "target": "js.undici",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
+      "files": ["main.mjs"],
+      "contains": ["import { request } from \"undici\"", "x-test"],
+      "support": "exact"
+    },
+    {
+      "name": "go proxy",
+      "target": "go.net_http",
+      "argv": ["curl", "--proxy", "http://proxy:8080", "https://example.com"],
+      "files": ["main.go"],
+      "contains": ["http.ProxyURL", "url.Parse(\"http://proxy:8080\")"],
+      "support": "exact"
+    },
+    {
+      "name": "rust reqwest",
+      "target": "rust.reqwest",
+      "argv": ["curl", "-H", "x-test: yes", "--data-raw", "hello", "https://example.com"],
+      "files": ["Cargo.toml", "src/main.rs", "src/async_main.rs"],
+      "contains": ["reqwest = { version = \"0.12\"", "request = request.body(\"hello\")"],
+      "support": "exact"
+    }
+  ]
+}

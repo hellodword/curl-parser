@@ -1,0 +1,12 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "https://a.example",
+    "--next",
+    "-H",
+    "B: C",
+    "https://b.example"
+  ],
+  "schemaVersion": "curl-parse-input/v1"
+}

@@ -1,0 +1,33 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--ipfs-gateway",
+    "https://gw.example",
+    "https://example.com"
+  ],
+  "parseMode": "strict",
+  "runtimeProfile": {
+    "curlVersion": "8.20.0",
+    "protocols": [
+      "http",
+      "https",
+      "ipfs",
+      "ipns"
+    ],
+    "features": [
+      "SSL",
+      "HTTP2",
+      "HTTP3"
+    ],
+    "compile": {
+      "availableOptions": null,
+      "disabledOptions": [],
+      "defines": [
+        "CURL_DISABLE_IPFS"
+      ]
+    },
+    "schemaVersion": "curl-runtime-profile/v1"
+  },
+  "schemaVersion": "curl-parse-input/v1"
+}

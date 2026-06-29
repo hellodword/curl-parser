@@ -1,0 +1,9 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "-Lvs",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v1"
+}

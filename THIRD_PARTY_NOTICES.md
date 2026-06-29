@@ -7,6 +7,7 @@ input under `third_party/curl/curl-8_20_0/`.
 
 - Upstream project: <https://github.com/curl/curl>
 - Upstream tag: `curl-8_20_0`
+- Upstream commit: `a05f34973e6c4bb629d018f7cb51487be1c904d8`
 - Upstream license: MIT-like (`COPYING` in the vendored source tree)
 
 The curl source tree is downloaded by `python scripts/tasks.py bootstrap` and is

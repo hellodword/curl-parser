@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "python.requests",
+  "library": {
+    "name": "requests",
+    "ecosystem": "python",
+    "minimumVersion": "2.31",
+    "notes": "Synchronous Python requests target."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "requests accepts request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "requests supports arbitrary HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "requests supports request headers."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "requests supports raw body data."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "requests supports multipart form data."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "requests supports basic authentication."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "requests supports inline cookies."
+    },
+    "proxy": {
+      "capability": "native",
+      "message": "requests supports proxy dictionaries."
+    },
+    "tls.verify": {
+      "capability": "native",
+      "message": "requests supports TLS verification settings."
+    },
+    "redirects": {
+      "capability": "native",
+      "message": "requests supports redirect following and limits."
+    },
+    "timeout": {
+      "capability": "native",
+      "message": "requests supports connect and read timeouts."
+    },
+    "http.version.2": {
+      "capability": "lossy",
+      "message": "requests does not expose forced HTTP/2 selection; generated code uses transport defaults."
+    },
+    "http.version.3": {
+      "capability": "unsupported",
+      "message": "requests does not expose HTTP/3 selection."
+    },
+    "external-ref": {
+      "capability": "unsupported",
+      "message": "External input referenced by the curl command cannot be generated."
+    }
+  }
+}

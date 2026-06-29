@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "curl-stub-contracts/v1",
+  "levels": [
+    "exact-captured",
+    "parse-only-safe",
+    "approximated",
+    "unimplemented-loud",
+    "forbidden-io"
+  ],
+  "stubs": [
+    {
+      "name": "curl_getenv",
+      "level": "forbidden-io",
+      "summary": "Host environment access is forbidden during parsing."
+    },
+    {
+      "name": "curl_easy_escape",
+      "level": "approximated",
+      "summary": "Returns an input copy instead of libcurl percent-encoding."
+    },
+    {
+      "name": "curl_mime_filedata",
+      "level": "unimplemented-loud",
+      "summary": "Form file upload would require external file IO."
+    },
+    {
+      "name": "curl_mime_data",
+      "level": "parse-only-safe",
+      "summary": "Captures form field presence without transfer execution."
+    },
+    {
+      "name": "curl_mime_data_cb",
+      "level": "parse-only-safe",
+      "summary": "Accepts callback registration without executing reads."
+    },
+    {
+      "name": "curl_mime_init",
+      "level": "parse-only-safe",
+      "summary": "Allocates an opaque placeholder for parse-only form capture."
+    },
+    {
+      "name": "curl_mime_addpart",
+      "level": "parse-only-safe",
+      "summary": "Allocates an opaque placeholder for parse-only form parts."
+    },
+    {
+      "name": "curl_url",
+      "level": "parse-only-safe",
+      "summary": "Allocates an opaque placeholder URL handle."
+    },
+    {
+      "name": "curl_url_set",
+      "level": "parse-only-safe",
+      "summary": "Accepts URL component assignment without network behavior."
+    },
+    {
+      "name": "curl_getdate",
+      "level": "approximated",
+      "summary": "Date parsing is not modeled and returns failure."
+    },
+    {
+      "name": "curl_strequal",
+      "level": "exact-captured",
+      "summary": "Case-insensitive string comparison mirrors needed behavior."
+    },
+    {
+      "name": "curl_strnequal",
+      "level": "exact-captured",
+      "summary": "Bounded case-insensitive string comparison mirrors needed behavior."
+    },
+    {
+      "name": "curl_slist_append",
+      "level": "exact-captured",
+      "summary": "Maintains ordered list data used by parser capture."
+    },
+    {
+      "name": "curl_slist_free_all",
+      "level": "exact-captured",
+      "summary": "Frees captured list data."
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "parseCases": [
+    ["curl", "https://example.com"],
+    ["curl", "-H", "accept: application/json", "https://example.com"],
+    ["curl", "--data-raw", "hello", "https://example.com"],
+    ["curl", "--json", "{\"ok\":true}", "https://example.com"],
+    ["curl", "-X", "PUT", "--data-raw", "hello", "https://example.com"],
+    ["curl", "-u", "u:p", "https://example.com"],
+    ["curl", "-b", "sid=abc", "https://example.com"],
+    ["curl", "--proxy", "http://proxy:8080", "https://example.com"],
+    ["curl", "-k", "https://example.com"],
+    ["curl", "-F", "a=b", "https://example.com"]
+  ],
+  "generateCases": [
+    {
+      "target": "c.libcurl",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
+      "file": "main.c"
+    },
+    {
+      "target": "python.requests",
+      "argv": ["curl", "--data-raw", "hello", "https://example.com"],
+      "file": "main.py"
+    },
+    {
+      "target": "js.fetch",
+      "argv": ["curl", "--data-raw", "hello", "https://example.com"],
+      "file": "main.js"
+    },
+    {
+      "target": "go.net_http",
+      "argv": ["curl", "--proxy", "http://proxy:8080", "https://example.com"],
+      "file": "main.go"
+    },
+    {
+      "target": "rust.reqwest",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
+      "file": "Cargo.toml"
+    }
+  ],
+  "unsupportedCase": {
+    "target": "js.fetch",
+    "argv": ["curl", "--http3", "https://example.com"],
+    "diagnostic": "E_TARGET_UNSUPPORTED"
+  }
+}

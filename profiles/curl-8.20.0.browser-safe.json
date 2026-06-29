@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "curl-runtime-profile/v1",
+  "curlVersion": "8.20.0",
+  "protocols": ["http", "https"],
+  "features": [
+    "alt-svc",
+    "brotli",
+    "HSTS",
+    "HTTP2",
+    "HTTP3",
+    "HTTPS-proxy",
+    "IPv6",
+    "Largefile",
+    "libz",
+    "SSL",
+    "threadsafe",
+    "zstd"
+  ],
+  "compile": {
+    "availableOptions": null,
+    "disabledOptions": [
+      "config",
+      "cookie-jar",
+      "dump-header",
+      "netrc",
+      "netrc-file",
+      "netrc-optional",
+      "output",
+      "remote-header-name",
+      "remote-name",
+      "remote-name-all",
+      "upload-file"
+    ],
+    "defines": []
+  },
+  "optionCatalog": {
+    "curlVersion": "8.20.0",
+    "source": "build/generated/options-8.20.0.json",
+    "sha256": "413ecc7f3a2639a99e1f5a9dc5e121145c8a48777a7c2464cce3fca2694e0ae3"
+  },
+  "sslBackend": "openssl",
+  "http3Backend": "ngtcp2",
+  "resolverBackend": "c-ares",
+  "defaults": {
+    "userAgent": null,
+    "httpVersion": null,
+    "followRedirects": false
+  }
+}

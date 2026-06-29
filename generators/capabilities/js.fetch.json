@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "js.fetch",
+  "library": {
+    "name": "fetch",
+    "ecosystem": "javascript",
+    "notes": "WHATWG fetch target for browser-like and Node-compatible runtimes."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "fetch accepts request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "fetch supports explicit HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "fetch supports request headers."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "fetch supports raw request bodies."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "fetch supports multipart bodies through FormData."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "fetch can send basic auth through the Authorization header."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "fetch can send explicit Cookie headers where the runtime allows them."
+    },
+    "proxy": {
+      "capability": "unsupported",
+      "message": "fetch does not expose curl-style per-request proxy selection."
+    },
+    "tls.verify": {
+      "capability": "unsupported",
+      "message": "fetch does not expose per-request TLS verification controls."
+    },
+    "redirects": {
+      "capability": "lossy",
+      "message": "fetch supports redirect modes but not curl's full redirect policy."
+    },
+    "timeout": {
+      "capability": "requires-runtime-helper",
+      "message": "fetch requires AbortController or a helper for timeouts."
+    },
+    "http.version.2": {
+      "capability": "unsupported",
+      "message": "fetch does not expose HTTP/2 selection."
+    },
+    "http.version.3": {
+      "capability": "unsupported",
+      "message": "fetch does not expose HTTP/3 selection."
+    },
+    "external-ref": {
+      "capability": "unsupported",
+      "message": "External input referenced by the curl command cannot be generated."
+    }
+  }
+}

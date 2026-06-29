@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "c.libcurl",
+  "library": {
+    "name": "libcurl",
+    "ecosystem": "c",
+    "minimumVersion": "8.20.0",
+    "notes": "Baseline target for behaviors already accepted by the embedded curl parser."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "libcurl sets request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "libcurl supports explicit and inferred HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "libcurl supports request header lists."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "libcurl supports raw request bodies."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "libcurl supports multipart form uploads."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "libcurl supports basic authentication."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "libcurl supports inline cookie headers."
+    },
+    "proxy": {
+      "capability": "native",
+      "message": "libcurl supports HTTP and HTTPS proxy configuration."
+    },
+    "tls.verify": {
+      "capability": "native",
+      "message": "libcurl supports TLS verification settings."
+    },
+    "redirects": {
+      "capability": "native",
+      "message": "libcurl supports redirect following and limits."
+    },
+    "timeout": {
+      "capability": "native",
+      "message": "libcurl supports connect and overall timeouts."
+    },
+    "http.version.2": {
+      "capability": "native",
+      "message": "libcurl supports HTTP/2 when the runtime profile exposes HTTP2."
+    },
+    "http.version.3": {
+      "capability": "native",
+      "message": "libcurl supports HTTP/3 when the runtime profile exposes HTTP3."
+    },
+    "external-ref": {
+      "capability": "unsupported",
+      "message": "External input referenced by the curl command cannot be generated as native code."
+    }
+  }
+}

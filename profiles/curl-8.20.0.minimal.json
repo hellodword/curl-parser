@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "curl-runtime-profile/v1",
+  "curlVersion": "8.20.0",
+  "protocols": ["http", "https"],
+  "features": ["SSL", "HTTP2"],
+  "compile": {
+    "availableOptions": null,
+    "disabledOptions": ["http3", "http3-only", "ipfs-gateway"],
+    "defines": ["CURL_DISABLE_IPFS"]
+  },
+  "optionCatalog": {
+    "curlVersion": "8.20.0",
+    "source": "build/generated/options-8.20.0.json",
+    "sha256": "413ecc7f3a2639a99e1f5a9dc5e121145c8a48777a7c2464cce3fca2694e0ae3"
+  },
+  "sslBackend": "openssl",
+  "http3Backend": null,
+  "resolverBackend": "c-ares",
+  "defaults": {
+    "userAgent": null,
+    "httpVersion": null,
+    "followRedirects": false
+  }
+}

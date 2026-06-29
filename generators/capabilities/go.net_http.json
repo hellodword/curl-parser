@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "go.net_http",
+  "library": {
+    "name": "net/http",
+    "ecosystem": "go",
+    "minimumVersion": "1.22",
+    "notes": "Go standard library HTTP client target."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "net/http accepts request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "net/http supports explicit HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "net/http supports request headers."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "net/http supports raw request bodies."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "net/http can construct multipart request bodies."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "net/http supports basic auth headers."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "net/http supports cookie headers."
+    },
+    "proxy": {
+      "capability": "native",
+      "message": "net/http transports support proxy configuration."
+    },
+    "tls.verify": {
+      "capability": "native",
+      "message": "net/http transports support TLS verification settings."
+    },
+    "redirects": {
+      "capability": "native",
+      "message": "net/http clients support redirect policy callbacks."
+    },
+    "timeout": {
+      "capability": "native",
+      "message": "net/http clients and contexts support timeouts."
+    },
+    "http.version.2": {
+      "capability": "native",
+      "message": "net/http can use HTTP/2 with transport configuration."
+    },
+    "http.version.3": {
+      "capability": "unsupported",
+      "message": "net/http does not provide built-in HTTP/3 client behavior."
+    },
+    "external-ref": {
+      "capability": "unsupported",
+      "message": "External input referenced by the curl command cannot be generated."
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "ftp.example.com/README"
+  ],
+  "schemaVersion": "curl-parse-input/v1"
+}

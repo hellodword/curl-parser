@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "curl-target-capabilities/v1",
+  "target": "rust.reqwest",
+  "library": {
+    "name": "reqwest",
+    "ecosystem": "rust",
+    "minimumVersion": "0.12",
+    "notes": "Rust reqwest client target."
+  },
+  "behaviors": {
+    "url": {
+      "capability": "native",
+      "message": "reqwest accepts request URLs directly."
+    },
+    "method": {
+      "capability": "native",
+      "message": "reqwest supports explicit HTTP methods."
+    },
+    "headers": {
+      "capability": "native",
+      "message": "reqwest supports request headers."
+    },
+    "body.raw": {
+      "capability": "native",
+      "message": "reqwest supports raw request bodies."
+    },
+    "body.multipart": {
+      "capability": "native",
+      "message": "reqwest supports multipart request bodies."
+    },
+    "auth.basic": {
+      "capability": "native",
+      "message": "reqwest supports basic authentication."
+    },
+    "cookies.inline": {
+      "capability": "native",
+      "message": "reqwest can send explicit Cookie headers."
+    },
+    "proxy": {
+      "capability": "native",
+      "message": "reqwest supports proxy configuration."
+    },
+    "tls.verify": {
+      "capability": "native",
+      "message": "reqwest supports TLS verification settings."
+    },
+    "redirects": {
+      "capability": "native",
+      "message": "reqwest supports redirect policies."
+    },
+    "timeout": {
+      "capability": "native",
+      "message": "reqwest supports request and connect timeouts."
+    },
+    "http.version.2": {
+      "capability": "native",
+      "message": "reqwest supports HTTP/2 with features and client configuration."
+    },
+    "http.version.3": {
+      "capability": "unsupported",
+      "message": "reqwest HTTP/3 support is not treated as a stable native target capability."
+    },
+    "external-ref": {
+      "capability": "unsupported",
+      "message": "External input referenced by the curl command cannot be generated."
+    }
+  }
+}

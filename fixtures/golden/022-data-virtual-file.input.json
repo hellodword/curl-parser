@@ -1,0 +1,5 @@
+{
+  "schemaVersion": "curl-parse-input/v1",
+  "inputMode": "argv",
+  "argv": ["curl", "--data", "@payload.txt", "https://example.com"]
+}

@@ -1,0 +1,487 @@
+{
+  "$id": "https://schemas.curl-parser.dev/curl-ir.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Curl IR v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "curlSourceVersion",
+    "command",
+    "runtime",
+    "externalRefs",
+    "globals",
+    "groups",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-ir/v1"
+    },
+    "curlSourceVersion": {
+      "type": "string"
+    },
+    "command": {
+      "$ref": "#/$defs/command"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "externalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/externalRef"
+      }
+    },
+    "globals": {
+      "$ref": "#/$defs/globalOptions"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transferGroup"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "diagnostics.v1.schema.json#/$defs/diagnostic"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "command": {
+      "type": "object",
+      "required": ["inputMode", "argv"],
+      "properties": {
+        "inputMode": {
+          "type": "string",
+          "enum": ["argv", "shell"]
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "argvSpans": {
+          "type": "array",
+          "items": {
+            "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+          }
+        },
+        "command": {
+          "type": "string"
+        },
+        "shellDialect": {
+          "type": "string",
+          "enum": ["bash", "zsh", "posix-sh", "powershell", "cmd", "fish"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["profile"],
+      "properties": {
+        "profile": {
+          "$ref": "runtime-profile.v1.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "externalRef": {
+      "type": "object",
+      "required": ["id", "kind", "access", "option", "value", "source"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "stdin",
+            "directory",
+            "output-file",
+            "cookie-jar",
+            "netrc",
+            "unix-socket",
+            "os-trust-store",
+            "os-client-cert-store",
+            "network-interface",
+            "local-file-url"
+          ]
+        },
+        "access": {
+          "type": "string"
+        },
+        "option": {
+          "type": ["string", "null"]
+        },
+        "value": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "oneOf": [
+            {
+              "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "globalOptions": {
+      "type": "object",
+      "properties": {
+        "failFast": {
+          "type": "boolean"
+        },
+        "parallel": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "transferGroup": {
+      "type": "object",
+      "required": ["id", "index", "options", "transfers"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "options": {
+          "$ref": "#/$defs/groupOptions"
+        },
+        "transfers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transfer"
+          }
+        },
+        "source": {
+          "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+        }
+      },
+      "additionalProperties": false
+    },
+    "groupOptions": {
+      "type": "object",
+      "properties": {
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/header"
+          }
+        },
+        "auth": {
+          "$ref": "#/$defs/auth"
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cookie"
+          }
+        },
+        "proxy": {
+          "$ref": "#/$defs/proxy"
+        },
+        "tls": {
+          "$ref": "#/$defs/tls"
+        },
+        "redirects": {
+          "$ref": "#/$defs/redirects"
+        },
+        "timeouts": {
+          "$ref": "#/$defs/timeouts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "transfer": {
+      "type": "object",
+      "required": ["id", "index", "url", "effective"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "url": {
+          "type": "string"
+        },
+        "rawUrl": {
+          "type": "string"
+        },
+        "urlResolution": {
+          "$ref": "#/$defs/urlResolution"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": ["local-file"]
+        },
+        "effective": {
+          "$ref": "#/$defs/requestSemantics"
+        },
+        "source": {
+          "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+        }
+      },
+      "additionalProperties": false
+    },
+    "urlResolution": {
+      "type": "object",
+      "required": ["scheme", "source", "normalized"],
+      "properties": {
+        "scheme": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["curl-default", "hostname-prefix", "proto-default"]
+        },
+        "normalized": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "requestSemantics": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/method"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/header"
+          }
+        },
+        "body": {
+          "$ref": "#/$defs/body"
+        },
+        "auth": {
+          "$ref": "#/$defs/auth"
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cookie"
+          }
+        },
+        "proxy": {
+          "$ref": "#/$defs/proxy"
+        },
+        "tls": {
+          "$ref": "#/$defs/tls"
+        },
+        "httpVersion": {
+          "type": ["string", "null"],
+          "enum": ["1.0", "1.1", "2", "3", null]
+        },
+        "redirects": {
+          "$ref": "#/$defs/redirects"
+        },
+        "timeouts": {
+          "$ref": "#/$defs/timeouts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "required": ["value", "source"],
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["default", "flag", "body"]
+        },
+        "sourceSpan": {
+          "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+        }
+      },
+      "additionalProperties": false
+    },
+    "header": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["name", "value"],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            },
+            "raw": {
+              "type": "string"
+            },
+            "sensitive": {
+              "type": "boolean"
+            },
+            "source": {
+              "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "externalRefId", "source"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "external"
+            },
+            "externalRefId": {
+              "type": ["string", "null"]
+            },
+            "source": {
+              "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "body": {
+      "type": ["object", "null"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "data",
+            "data-raw",
+            "data-binary",
+            "data-urlencode",
+            "json",
+            "form",
+            "form-string",
+            "upload-file"
+          ]
+        },
+        "value": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "$ref": "diagnostics.v1.schema.json#/$defs/sourceSpan"
+        },
+        "externalRefId": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "scheme": {
+          "type": ["string", "null"]
+        },
+        "value": {
+          "type": ["string", "null"]
+        },
+        "sensitive": {
+          "type": "boolean"
+        },
+        "externalRefId": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "cookie": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["header", "jar", "file"]
+        },
+        "value": {
+          "type": "string"
+        },
+        "sensitive": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proxy": {
+      "type": ["object", "null"],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/header"
+          }
+        }
+      },
+      "required": ["url"],
+      "additionalProperties": false
+    },
+    "tls": {
+      "type": "object",
+      "properties": {
+        "verify": {
+          "type": "boolean"
+        },
+        "caBundle": {
+          "type": ["string", "null"]
+        },
+        "clientCert": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "redirects": {
+      "type": "object",
+      "properties": {
+        "follow": {
+          "type": "boolean"
+        },
+        "max": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "timeouts": {
+      "type": "object",
+      "properties": {
+        "connectTimeoutMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

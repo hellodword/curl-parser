@@ -1,0 +1,416 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-soft: #eef4f2;
+  --ink: #18211f;
+  --muted: #66716e;
+  --line: #d7dfdc;
+  --accent: #0f766e;
+  --accent-soft: #dff4ef;
+  --warning: #a16207;
+  --error: #b42318;
+  --code-bg: #fafafa;
+  --code-border: #d8dee4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 0;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-width: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+textarea,
+input,
+select {
+  font: inherit;
+}
+
+.workspace {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.title-block {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.28rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+h2 {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.workbench {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.72fr) minmax(500px, 1.28fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.command-card,
+.result-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.command-card {
+  align-self: start;
+}
+
+.command-card-content {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.control-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.control-field > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.command-field textarea,
+.n-input textarea {
+  font:
+    0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  overflow-wrap: anywhere;
+}
+
+.result-panel {
+  display: grid;
+  min-height: calc(100vh - 88px);
+  overflow: hidden;
+}
+
+.result-tabs {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 14px 14px;
+}
+
+.result-tabs > .n-tabs-nav {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.result-tabs .n-tabs-tab {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.result-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.tab-surface,
+.details-surface {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: 12px;
+}
+
+.tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tab-title,
+.tab-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.tab-title {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.tab-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.file-selector {
+  width: min(280px, 46vw);
+}
+
+.n-button {
+  min-height: 38px;
+}
+
+.code-frame {
+  min-width: 0;
+  height: calc(100vh - 190px);
+  min-height: 520px;
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  overflow: auto;
+  background: var(--code-bg);
+}
+
+.highlighted-code,
+.highlighted-code .shiki,
+.plain-code {
+  min-width: max-content;
+  margin: 0;
+}
+
+.highlighted-code .shiki,
+.plain-code {
+  padding: 16px;
+  background: transparent !important;
+  font:
+    0.86rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.highlighted-code code,
+.plain-code {
+  white-space: pre;
+}
+
+.empty-state {
+  min-height: 260px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.empty-state.compact {
+  min-height: 96px;
+}
+
+.details-surface {
+  padding-bottom: 4px;
+}
+
+.detail-alert {
+  margin-bottom: 2px;
+}
+
+.detail-section {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.detail-section + .detail-section {
+  margin-top: 6px;
+}
+
+.detail-row,
+.message-row {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.detail-row {
+  grid-template-columns: 32px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.message-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.detail-row.is-error,
+.message-row:has(.n-tag--error) {
+  border-color: #f1b5ae;
+}
+
+.detail-icon {
+  display: flex;
+  justify-content: center;
+  padding-top: 3px;
+  color: var(--muted);
+}
+
+.detail-row.is-error .detail-icon {
+  color: var(--error);
+}
+
+.detail-body,
+.message-row div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.detail-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-heading code {
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  background: var(--surface-soft);
+  font:
+    0.82rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.detail-body strong,
+.message-row strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.detail-body p,
+.message-row p,
+.message-row small {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 920px) {
+  .workspace {
+    padding: 14px;
+  }
+
+  .workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .result-panel {
+    min-height: 620px;
+  }
+
+  .code-frame {
+    height: 560px;
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 600px) {
+  .workspace {
+    padding: 10px;
+  }
+
+  .app-header {
+    margin-bottom: 10px;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .command-card-content {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .result-tabs {
+    padding: 0 10px 10px;
+  }
+
+  .tab-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tab-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .file-selector {
+    width: min(100%, 280px);
+  }
+
+  .code-frame {
+    height: 470px;
+    min-height: 360px;
+  }
+
+  .highlighted-code .shiki,
+  .plain-code {
+    padding: 12px;
+    font-size: 0.82rem;
+  }
+}

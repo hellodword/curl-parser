@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "fetch http3 unsupported",
+      "target": "js.fetch",
+      "argv": ["curl", "--http3", "https://example.com"],
+      "support": "unsupported",
+      "diagnostic": "E_TARGET_UNSUPPORTED"
+    },
+    {
+      "name": "fetch ftp url unsupported",
+      "target": "js.fetch",
+      "argv": ["curl", "ftp.example.com/README"],
+      "support": "unsupported",
+      "diagnostic": "E_TARGET_URL_SCHEME_UNSUPPORTED"
+    },
+    {
+      "name": "go cookie file external ref",
+      "target": "go.net_http",
+      "argv": ["curl", "-b", "cookies.txt", "https://example.com"],
+      "support": "requires-runtime-helper",
+      "diagnostic": "W_TARGET_HELPER_REQUIRED"
+    },
+    {
+      "name": "python http2 lossy",
+      "target": "python.requests",
+      "argv": ["curl", "--http2", "https://example.com"],
+      "support": "lossy"
+    }
+  ]
+}

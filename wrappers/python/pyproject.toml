@@ -1,9 +1,0 @@
-[project]
-name = "curl-parser-wasm"
-version = "0.1.0"
-description = "Python wrapper for the curl-parser wasm ABI"
-requires-python = ">=3.13"
-dependencies = [
-  "wasmtime>=45.0.0",
-]
-

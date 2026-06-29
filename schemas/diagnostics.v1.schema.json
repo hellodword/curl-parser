@@ -1,0 +1,107 @@
+{
+  "$id": "https://schemas.curl-parser.dev/diagnostics.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser diagnostics v1",
+  "$defs": {
+    "diagnosticCode": {
+      "type": "string",
+      "pattern": "^(E|W|I)_[A-Z0-9_]+$|^(parse-error|option-not-available|protocol-not-available|feature-not-available)$"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["fatal", "error", "warning", "info"]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "input",
+        "shell",
+        "curl",
+        "profile",
+        "support",
+        "target",
+        "internal"
+      ]
+    },
+    "sourceSpan": {
+      "type": "object",
+      "required": ["source", "start", "end"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["command", "argv", "generated"]
+        },
+        "argvIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "category", "message"],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/diagnosticCode"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "option": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "$ref": "#/$defs/sourceSpan"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "guardMessage": {
+      "type": "object",
+      "required": ["code", "option", "detail", "warning"],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/diagnosticCode"
+        },
+        "option": {
+          "type": ["string", "null"]
+        },
+        "detail": {
+          "type": ["string", "null"]
+        },
+        "warning": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/$defs/diagnostic"
+}

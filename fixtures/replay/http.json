@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "js fetch method header body",
+      "target": "js.fetch",
+      "argv": [
+        "curl",
+        "-X",
+        "PATCH",
+        "-H",
+        "x-test: yes",
+        "--data-raw",
+        "hello",
+        "http://127.0.0.1:1/replay"
+      ],
+      "execute": "node-fetch",
+      "expect": {
+        "method": "PATCH",
+        "url": "/replay",
+        "headers": { "x-test": "yes" },
+        "body": "hello"
+      }
+    },
+    {
+      "name": "python multipart shape",
+      "target": "python.requests",
+      "argv": ["curl", "-F", "a=b", "http://127.0.0.1:1/replay"],
+      "contains": ["request_kwargs[\"files\"]", "session.request(\"POST\""]
+    },
+    {
+      "name": "go cookie shape",
+      "target": "go.net_http",
+      "argv": ["curl", "-b", "sid=abc", "http://127.0.0.1:1/replay"],
+      "contains": ["req.Header.Set(\"Cookie\", \"sid=abc\")"]
+    },
+    {
+      "name": "go proxy shape",
+      "target": "go.net_http",
+      "argv": ["curl", "--proxy", "http://proxy:8080", "http://127.0.0.1:1/replay"],
+      "contains": ["http.ProxyURL"]
+    }
+  ]
+}

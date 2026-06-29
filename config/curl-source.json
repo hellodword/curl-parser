@@ -1,0 +1,8 @@
+{
+  "version": "8.20.0",
+  "tag": "curl-8_20_0",
+  "upstreamCommit": "a05f34973e6c4bb629d018f7cb51487be1c904d8",
+  "nixHash": "sha256-WjMDjF/SleliTCn1iD/X9fZ+9TQaV5o26vn0s1GEOw0=",
+  "licenseFile": "COPYING",
+  "wasmSizeBudget": 141000
+}

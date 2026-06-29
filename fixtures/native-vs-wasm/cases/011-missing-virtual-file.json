@@ -1,0 +1,9 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--config",
+    "missing.conf"
+  ],
+  "schemaVersion": "curl-parse-input/v1"
+}

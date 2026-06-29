@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "posix single quotes",
+      "shellDialect": "posix-sh",
+      "command": "curl -H 'x-test: yes' https://example.com",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"]
+    },
+    {
+      "name": "bash escaped space",
+      "shellDialect": "bash",
+      "command": "curl https://example.com/a\\ b",
+      "argv": ["curl", "https://example.com/a b"]
+    },
+    {
+      "name": "powershell doubled quote",
+      "shellDialect": "powershell",
+      "command": "curl -H 'x-test: it''s-ok' https://example.com",
+      "argv": ["curl", "-H", "x-test: it's-ok", "https://example.com"]
+    },
+    {
+      "name": "cmd caret escape",
+      "shellDialect": "cmd",
+      "command": "curl -H x-test:^ yes https://example.com",
+      "argv": ["curl", "-H", "x-test: yes", "https://example.com"]
+    }
+  ]
+}
