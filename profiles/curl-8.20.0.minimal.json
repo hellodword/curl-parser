@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-runtime-profile/v1",
+  "schemaVersion": "curl-runtime-profile/v2",
   "curlVersion": "8.20.0",
   "protocols": ["http", "https"],
   "features": ["SSL", "HTTP2"],

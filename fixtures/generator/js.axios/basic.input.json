@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.axios",
+  "argv": [
+    "curl",
+    "-H",
+    "x-test: yes",
+    "--data-raw",
+    "hello",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "axios.request(requestOptions)",
+    "maxRedirects: 0",
+    "requestOptions.data = \"hello\""
+  ]
+}

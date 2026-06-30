@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "proxy headers auth tunnel and h2",
+      "argv": [
+        "curl",
+        "--proxy",
+        "http://proxy.example:8080",
+        "--proxy-header",
+        "X-Proxy: yes",
+        "--proxy-user",
+        "proxy-user:proxy-pass",
+        "--proxytunnel",
+        "--proxy-http2",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "proxy": {
+            "url": "http://proxy.example:8080",
+            "mode": "http",
+            "headers": [{ "name": "X-Proxy", "value": "yes" }],
+            "auth": { "value": "proxy-user:proxy-pass", "sensitive": true },
+            "tunnel": true,
+            "httpVersion": "2"
+          }
+        }
+      }
+    }
+  ]
+}

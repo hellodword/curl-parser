@@ -13,7 +13,7 @@ NATIVE_CLI = REPO_ROOT / "build" / "native" / "curlparse_cli"
 
 def parse(argv: list[str]) -> dict[str, Any]:
     payload = {
-        "schemaVersion": "curl-parse-input/v1",
+        "schemaVersion": "curl-parse-input/v2",
         "inputMode": "argv",
         "argv": argv,
     }

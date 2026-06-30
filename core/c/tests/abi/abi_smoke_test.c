@@ -17,41 +17,22 @@ int main(void)
 {
   static const char argv_input_json[] =
     "{"
-    "\"schemaVersion\":\"curl-parse-input/v1\","
+    "\"schemaVersion\":\"curl-parse-input/v2\","
     "\"inputMode\":\"argv\","
     "\"argv\":[\"curl\",\"https://example.com\"]"
     "}";
   static const char command_input_json[] =
     "{"
-    "\"schemaVersion\":\"curl-parse-input/v1\","
+    "\"schemaVersion\":\"curl-parse-input/v2\","
     "\"inputMode\":\"command\","
     "\"command\":\"curl https://example.com\""
     "}";
   static const char duplicate_input_json[] =
     "{"
-    "\"schemaVersion\":\"curl-parse-input/v1\","
+    "\"schemaVersion\":\"curl-parse-input/v2\","
     "\"inputMode\":\"argv\","
     "\"inputMode\":\"argv\","
     "\"argv\":[\"curl\",\"https://example.com\"]"
-    "}";
-  static const char generate_input_json[] =
-    "{"
-    "\"schemaVersion\":\"curl-generate-input/v1\","
-    "\"target\":\"js.fetch\","
-    "\"ir\":{"
-    "\"schemaVersion\":\"curl-ir/v1\","
-    "\"curlSourceVersion\":\"8.20.0\","
-    "\"command\":{\"inputMode\":\"argv\",\"argv\":[\"curl\",\"--http3\",\"https://example.com\"]},"
-    "\"runtime\":{\"profile\":{\"schemaVersion\":\"curl-runtime-profile/v1\"}},"
-    "\"externalRefs\":[],"
-    "\"globals\":{},"
-    "\"groups\":[{\"id\":\"group-0\",\"index\":0,\"options\":{},"
-    "\"transfers\":[{\"id\":\"transfer-0\",\"index\":0,\"url\":\"https://example.com\","
-    "\"effective\":{\"method\":{\"value\":\"GET\",\"source\":\"default\"},"
-    "\"headers\":[],\"body\":null,\"auth\":{},\"cookies\":[],\"proxy\":null,"
-    "\"tls\":{},\"httpVersion\":\"3\"}}]}],"
-    "\"diagnostics\":[]"
-    "}"
     "}";
   uint32_t input_ptr;
   uint32_t pair_ptr;
@@ -66,7 +47,7 @@ int main(void)
   size_t huge_len;
   uint32_t engine;
 
-  assert(curlparse_abi_version() == 1U);
+  assert(curlparse_abi_version() == 2U);
   engine = curlparse_engine_new();
   assert(engine != 0U);
 
@@ -95,36 +76,11 @@ int main(void)
 
   assert(output_memory != NULL);
   assert(strstr(output_memory, "\"ok\":true") != NULL);
-  assert(strstr(output_memory, "\"schemaVersion\":\"curl-parse-output/v1\"") != NULL);
-  assert(strstr(output_memory, "\"schemaVersion\":\"curl-runtime-profile/v1\"") != NULL);
+  assert(strstr(output_memory, "\"schemaVersion\":\"curl-parse-output/v2\"") != NULL);
+  assert(strstr(output_memory, "\"schemaVersion\":\"curl-runtime-profile/v2\"") != NULL);
   assert(strstr(output_memory, "\"argv\":[\"curl\",\"https://example.com\"]") != NULL);
   assert(strstr(output_memory, "\"operations\":[") != NULL);
   assert(strstr(output_memory, "\"events\":[") != NULL);
-
-  input_ptr = curlparse_alloc((uint32_t)(sizeof(generate_input_json) - 1U));
-  pair_ptr = curlparse_alloc(8U);
-  input_memory = curlparse_native_ptr(input_ptr,
-                                      (uint32_t)(sizeof(generate_input_json) - 1U));
-  pair_memory = curlparse_native_ptr(pair_ptr, 8U);
-  assert(input_ptr != 0U);
-  assert(pair_ptr != 0U);
-  assert(input_memory != NULL);
-  assert(pair_memory != NULL);
-  memcpy(input_memory, generate_input_json, sizeof(generate_input_json) - 1U);
-  assert(curlparse_generate_json(engine,
-                                 input_ptr,
-                                 (uint32_t)(sizeof(generate_input_json) - 1U),
-                                 pair_ptr) == 0);
-  output_ptr = read_u32_le(pair_memory);
-  output_len = read_u32_le(pair_memory + 4);
-  output_memory = curlparse_native_ptr(output_ptr, output_len);
-  assert(output_memory != NULL);
-  assert(strstr(output_memory, "\"schemaVersion\":\"curl-generate-output/v1\"") != NULL);
-  assert(strstr(output_memory, "\"target\":\"js.fetch\"") != NULL);
-  assert(strstr(output_memory, "\"behavior\":\"http.version.3\"") != NULL);
-  assert(strstr(output_memory, "\"capability\":\"unsupported\"") != NULL);
-  assert(strstr(output_memory, "\"level\":\"unsupported\"") != NULL);
-  assert(strstr(output_memory, "\"code\":\"E_TARGET_UNSUPPORTED\"") != NULL);
 
   input_ptr = curlparse_alloc((uint32_t)(sizeof(command_input_json) - 1U));
   pair_ptr = curlparse_alloc(8U);

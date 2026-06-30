@@ -1,7 +1,5 @@
 #include "curlparse/api.h"
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,7 +19,6 @@
 #define CURLPARSE_ERR_PARSE -3
 #define CURLPARSE_ERR_OUTPUT_PAIR -4
 #define CURLPARSE_ERR_ENGINE -6
-#define CURLPARSE_ERR_UNIMPLEMENTED -7
 
 struct CurlparseEngine {
   uint32_t magic;
@@ -624,12 +621,26 @@ static int collect_external_refs_and_rewrite_argv(
 )
 {
   static const char *const existingfile_options[] = {
-    "cacert", "crlfile", "knownhosts", "netrc-file",
-    "proxy-cacert", "proxy-crlfile", NULL
+    "crlfile", "knownhosts", "netrc-file", "proxy-crlfile", NULL
+  };
+  static const char *const tls_ca_file_options[] = {
+    "cacert", "proxy-cacert", NULL
   };
   static const char *const security_file_options[] = {
-    "cert", "key", "pubkey", "pinnedpubkey", "proxy-cert", "proxy-key",
-    "proxy-pinnedpubkey", "random-file", "egd-file", NULL
+    "pubkey", "pinnedpubkey", "proxy-pinnedpubkey", "random-file",
+    "egd-file", NULL
+  };
+  static const char *const tls_client_cert_options[] = {
+    "cert", NULL
+  };
+  static const char *const tls_client_key_options[] = {
+    "key", NULL
+  };
+  static const char *const proxy_client_cert_options[] = {
+    "proxy-cert", NULL
+  };
+  static const char *const proxy_client_key_options[] = {
+    "proxy-key", NULL
   };
   static const char *const security_dir_options[] = {
     "capath", "proxy-capath", NULL
@@ -777,6 +788,29 @@ static int collect_external_refs_and_rewrite_argv(
         rc = rewrite_noop_value_event(input, rewrites, event);
       }
     }
+    else if(canonical_in(event, tls_ca_file_options) &&
+            event->value && event->value[0]) {
+      rc = add_value_ref(input, event, "tls-ca-file", "read", event->value);
+      if(rc == 0) {
+        rc = rewrite_noop_value_event(input, rewrites, event);
+      }
+    }
+    else if(canonical_in(event, tls_client_cert_options) &&
+            event->value && event->value[0]) {
+      rc = add_value_ref(input, event, "tls-client-cert", "read", event->value);
+    }
+    else if(canonical_in(event, tls_client_key_options) &&
+            event->value && event->value[0]) {
+      rc = add_value_ref(input, event, "tls-client-key", "read", event->value);
+    }
+    else if(canonical_in(event, proxy_client_cert_options) &&
+            event->value && event->value[0]) {
+      rc = add_value_ref(input, event, "proxy-client-cert", "read", event->value);
+    }
+    else if(canonical_in(event, proxy_client_key_options) &&
+            event->value && event->value[0]) {
+      rc = add_value_ref(input, event, "proxy-client-key", "read", event->value);
+    }
     else if(canonical_in(event, security_file_options) &&
             event->value && event->value[0]) {
       rc = add_value_ref(input, event, "file", "read", event->value);
@@ -793,10 +827,15 @@ static int collect_external_refs_and_rewrite_argv(
     }
     else if(canonical_in(event, output_file_options) &&
             event->value && event->value[0]) {
-      const char *kind = event_is_canonical(event, "cookie-jar") ?
-        "cookie-jar" : "output-file";
-      const char *access = event_is_canonical(event, "cookie-jar") ?
-        "read-write" : "write";
+      const char *kind =
+        event_is_canonical(event, "cookie-jar") ? "cookie-jar" :
+        event_is_canonical(event, "dump-header") ? "header-output" :
+        (event_is_canonical(event, "trace") ||
+         event_is_canonical(event, "trace-ascii") ||
+         event_is_canonical(event, "stderr")) ? "trace-output" :
+        "output-file";
+      const char *access =
+        event_is_canonical(event, "cookie-jar") ? "read-write" : "write";
       rc = add_value_ref(input, event, kind, access, event->value);
     }
     else if(event_is_canonical(event, "output-dir") &&
@@ -813,8 +852,9 @@ static int collect_external_refs_and_rewrite_argv(
         (event_is_canonical(event, "unix-socket") ||
          event_is_canonical(event, "abstract-unix-socket")) ?
         "unix-socket" :
+        event_is_canonical(event, "dns-interface") ?
+        "dns-interface" :
         (event_is_canonical(event, "interface") ||
-         event_is_canonical(event, "dns-interface") ||
          event_is_canonical(event, "local-port") ||
          event_is_canonical(event, "ftp-port")) ?
         "network-interface" : "file";
@@ -873,565 +913,9 @@ static int32_t write_output_json_to_pair(
   return 0;
 }
 
-struct CurlparseJsonBuffer {
-  char *data;
-  size_t len;
-  size_t cap;
-};
-
-struct CurlparsePlanIssue {
-  const char *behavior;
-  const char *level;
-  const char *message;
-  bool diagnostic;
-};
-
-struct CurlparsePlanState {
-  struct CurlparsePlanIssue issues[16];
-  size_t issue_count;
-  bool has_lossy;
-  bool has_runtime_helper;
-  bool has_unsupported;
-};
-
-static int json_buffer_reserve(struct CurlparseJsonBuffer *buffer, size_t needed)
-{
-  char *grown;
-  size_t new_cap;
-
-  if(!buffer) {
-    return -1;
-  }
-  if(needed <= buffer->cap) {
-    return 0;
-  }
-
-  new_cap = buffer->cap ? buffer->cap : 1024U;
-  while(new_cap < needed) {
-    if(new_cap > (SIZE_MAX / 2U)) {
-      return -1;
-    }
-    new_cap *= 2U;
-  }
-
-  grown = realloc(buffer->data, new_cap);
-  if(!grown) {
-    return -1;
-  }
-  buffer->data = grown;
-  buffer->cap = new_cap;
-  return 0;
-}
-
-static int json_buffer_append(
-  struct CurlparseJsonBuffer *buffer,
-  const char *text
-)
-{
-  size_t len;
-
-  if(!buffer || !text) {
-    return -1;
-  }
-
-  len = strlen(text);
-  if(json_buffer_reserve(buffer, buffer->len + len + 1U) != 0) {
-    return -1;
-  }
-  memcpy(buffer->data + buffer->len, text, len);
-  buffer->len += len;
-  buffer->data[buffer->len] = '\0';
-  return 0;
-}
-
-static int json_buffer_appendf(
-  struct CurlparseJsonBuffer *buffer,
-  const char *format,
-  ...
-)
-{
-  va_list args;
-  va_list args_copy;
-  int needed;
-
-  if(!buffer || !format) {
-    return -1;
-  }
-
-  va_start(args, format);
-  va_copy(args_copy, args);
-  needed = vsnprintf(NULL, 0, format, args);
-  va_end(args);
-  if(needed < 0) {
-    va_end(args_copy);
-    return -1;
-  }
-
-  if(json_buffer_reserve(buffer, buffer->len + (size_t)needed + 1U) != 0) {
-    va_end(args_copy);
-    return -1;
-  }
-  if(vsnprintf(buffer->data + buffer->len,
-               buffer->cap - buffer->len,
-               format,
-               args_copy) != needed) {
-    va_end(args_copy);
-    return -1;
-  }
-  va_end(args_copy);
-  buffer->len += (size_t)needed;
-  return 0;
-}
-
-static const char *skip_json_ws(const char *cursor)
-{
-  while(cursor &&
-        (*cursor == ' ' || *cursor == '\n' ||
-         *cursor == '\r' || *cursor == '\t')) {
-    ++cursor;
-  }
-  return cursor;
-}
-
-static int extract_json_string_field(
-  const char *json,
-  const char *field,
-  char *out,
-  size_t out_size
-)
-{
-  char pattern[64];
-  const char *cursor;
-  size_t field_len;
-  size_t copied = 0U;
-
-  if(!json || !field || !out || out_size == 0U) {
-    return -1;
-  }
-
-  field_len = strlen(field);
-  if(field_len + 3U > sizeof(pattern)) {
-    return -1;
-  }
-  pattern[0] = '"';
-  memcpy(pattern + 1U, field, field_len);
-  pattern[field_len + 1U] = '"';
-  pattern[field_len + 2U] = '\0';
-
-  cursor = strstr(json, pattern);
-  if(!cursor) {
-    return -1;
-  }
-  cursor += field_len + 2U;
-  cursor = skip_json_ws(cursor);
-  if(!cursor || *cursor != ':') {
-    return -1;
-  }
-  cursor = skip_json_ws(cursor + 1U);
-  if(!cursor || *cursor != '"') {
-    return -1;
-  }
-  ++cursor;
-
-  while(*cursor && *cursor != '"') {
-    if(*cursor == '\\' || copied + 1U >= out_size) {
-      return -1;
-    }
-    out[copied++] = *cursor++;
-  }
-  if(*cursor != '"') {
-    return -1;
-  }
-  out[copied] = '\0';
-  return 0;
-}
-
-static bool planner_target_is_known(const char *target)
-{
-  return target &&
-    (strcmp(target, "c.libcurl") == 0 ||
-     strcmp(target, "python.requests") == 0 ||
-     strcmp(target, "js.fetch") == 0 ||
-     strcmp(target, "js.undici") == 0 ||
-     strcmp(target, "go.net_http") == 0 ||
-     strcmp(target, "rust.reqwest") == 0);
-}
-
-static bool planner_target_supports_http3(const char *target)
-{
-  return target && strcmp(target, "c.libcurl") == 0;
-}
-
-static const char *planner_proxy_capability(const char *target)
-{
-  if(target && strcmp(target, "js.fetch") == 0) {
-    return "unsupported";
-  }
-  if(target && strcmp(target, "js.undici") == 0) {
-    return "requires-runtime-helper";
-  }
-  return "native";
-}
-
-static const char *planner_tls_verify_capability(const char *target)
-{
-  if(target && strcmp(target, "js.fetch") == 0) {
-    return "unsupported";
-  }
-  return "native";
-}
-
-static const char *planner_timeout_capability(const char *target)
-{
-  if(target && strcmp(target, "js.fetch") == 0) {
-    return "requires-runtime-helper";
-  }
-  return "native";
-}
-
-static void record_plan_issue(
-  struct CurlparsePlanState *state,
-  const char *behavior,
-  const char *level,
-  const char *message,
-  bool diagnostic
-)
-{
-  if(!state || !behavior || !level || strcmp(level, "native") == 0) {
-    return;
-  }
-
-  if(strcmp(level, "lossy") == 0) {
-    state->has_lossy = true;
-  }
-  else if(strcmp(level, "requires-runtime-helper") == 0) {
-    state->has_runtime_helper = true;
-  }
-  else if(strcmp(level, "unsupported") == 0) {
-    state->has_unsupported = true;
-  }
-  if(state->issue_count < (sizeof(state->issues) / sizeof(state->issues[0]))) {
-    state->issues[state->issue_count].behavior = behavior;
-    state->issues[state->issue_count].level = level;
-    state->issues[state->issue_count].message = message ? message : "";
-    state->issues[state->issue_count].diagnostic = diagnostic;
-    ++state->issue_count;
-  }
-}
-
-static int append_plan_step(
-  struct CurlparseJsonBuffer *buffer,
-  struct CurlparsePlanState *state,
-  bool *first_step,
-  const char *behavior,
-  const char *capability,
-  const char *message
-)
-{
-  if(!buffer || !first_step || !behavior || !capability) {
-    return -1;
-  }
-
-  if(!*first_step && json_buffer_append(buffer, ",") != 0) {
-    return -1;
-  }
-  *first_step = false;
-
-  if(message && *message) {
-    if(json_buffer_appendf(buffer,
-                           "{\"behavior\":\"%s\",\"capability\":\"%s\","
-                           "\"message\":\"%s\"}",
-                           behavior,
-                           capability,
-                           message) != 0) {
-      return -1;
-    }
-  }
-  else if(json_buffer_appendf(buffer,
-                              "{\"behavior\":\"%s\",\"capability\":\"%s\"}",
-                              behavior,
-                              capability) != 0) {
-    return -1;
-  }
-
-  record_plan_issue(state,
-                    behavior,
-                    capability,
-                    message,
-                    strcmp(capability, "unsupported") == 0);
-  return 0;
-}
-
-static const char *planner_support_level(
-  const struct CurlparsePlanState *state
-)
-{
-  if(state->has_unsupported) {
-    return "unsupported";
-  }
-  if(state->has_runtime_helper) {
-    return "requires-runtime-helper";
-  }
-  if(state->has_lossy) {
-    return "lossy";
-  }
-  return "exact";
-}
-
-static int render_generate_request_plan(
-  const char *input_json,
-  const char *target,
-  char **out_json,
-  size_t *out_len
-)
-{
-  struct CurlparseJsonBuffer buffer;
-  struct CurlparsePlanState state;
-  bool first_step = true;
-  bool has_http2;
-  bool has_http3;
-  bool has_body;
-  bool has_proxy;
-  bool has_tls_verify_false;
-  bool has_redirects;
-  bool has_timeouts;
-  bool has_external_refs;
-  bool has_filesystem_refs;
-  bool has_auth;
-  bool has_cookies;
-  size_t i;
-
-  if(!input_json || !target || !out_json || !out_len) {
-    return -1;
-  }
-
-  memset(&buffer, 0, sizeof(buffer));
-  memset(&state, 0, sizeof(state));
-  *out_json = NULL;
-  *out_len = 0;
-
-  has_http2 = strstr(input_json, "\"httpVersion\":\"2\"") != NULL;
-  has_http3 = strstr(input_json, "\"httpVersion\":\"3\"") != NULL;
-  has_body = strstr(input_json, "\"body\":{\"kind\"") != NULL;
-  has_proxy = strstr(input_json, "\"proxy\":{\"url\"") != NULL;
-  has_tls_verify_false = strstr(input_json, "\"tls\":{\"verify\":false") != NULL;
-  has_redirects = strstr(input_json, "\"redirects\":{\"follow\":true") != NULL ||
-                  strstr(input_json, "\"redirects\":{\"max\"") != NULL;
-  has_timeouts = strstr(input_json, "\"timeouts\":{") != NULL;
-  has_external_refs = strstr(input_json, "\"externalRefs\":[{") != NULL;
-  has_filesystem_refs =
-    strstr(input_json, "\"kind\":\"file\"") != NULL ||
-    strstr(input_json, "\"kind\":\"stdin\"") != NULL ||
-    strstr(input_json, "\"kind\":\"directory\"") != NULL ||
-    strstr(input_json, "\"kind\":\"output-file\"") != NULL ||
-    strstr(input_json, "\"kind\":\"cookie-jar\"") != NULL ||
-    strstr(input_json, "\"kind\":\"local-file-url\"") != NULL;
-  has_auth = strstr(input_json, "\"auth\":{\"scheme\"") != NULL;
-  has_cookies = strstr(input_json, "\"cookies\":[{") != NULL;
-
-  if(json_buffer_appendf(&buffer,
-                         "{\"schemaVersion\":\"curl-generate-output/v1\","
-                         "\"target\":\"%s\","
-                         "\"files\":[],"
-                         "\"plan\":{\"target\":\"%s\",\"transfers\":["
-                         "{\"id\":\"transfer-0\",\"steps\":[",
-                         target,
-                         target) != 0) {
-    free(buffer.data);
-    return -1;
-  }
-
-  if(append_plan_step(&buffer, &state, &first_step,
-                      "url", "native", NULL) != 0 ||
-     append_plan_step(&buffer, &state, &first_step,
-                      "method", "native", NULL) != 0 ||
-     append_plan_step(&buffer, &state, &first_step,
-                      "headers", "native", NULL) != 0) {
-    free(buffer.data);
-    return -1;
-  }
-
-  if(has_body &&
-     append_plan_step(&buffer, &state, &first_step,
-                      "body.raw", "native", NULL) != 0) {
-    free(buffer.data);
-    return -1;
-  }
-  if(has_auth &&
-     append_plan_step(&buffer, &state, &first_step,
-                      "auth.basic", "native", NULL) != 0) {
-    free(buffer.data);
-    return -1;
-  }
-  if(has_cookies &&
-     append_plan_step(&buffer, &state, &first_step,
-                      "cookies.inline", "native", NULL) != 0) {
-    free(buffer.data);
-    return -1;
-  }
-  if(has_proxy) {
-    const char *capability = planner_proxy_capability(target);
-    const char *message =
-      strcmp(capability, "native") == 0 ? NULL :
-      (strcmp(capability, "unsupported") == 0 ?
-       "Target cannot preserve curl-style proxy selection" :
-       "Target requires runtime proxy helper wiring");
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "proxy", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_tls_verify_false) {
-    const char *capability = planner_tls_verify_capability(target);
-    const char *message =
-      strcmp(capability, "native") == 0 ? NULL :
-      "Target cannot disable TLS verification per request";
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "tls.verify", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_redirects) {
-    const char *capability =
-      (target && strcmp(target, "js.fetch") == 0) ? "lossy" : "native";
-    const char *message =
-      strcmp(capability, "native") == 0 ? NULL :
-      "Target cannot preserve curl's complete redirect policy";
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "redirects", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_timeouts) {
-    const char *capability = planner_timeout_capability(target);
-    const char *message =
-      strcmp(capability, "native") == 0 ? NULL :
-      "Target requires runtime timeout helper wiring";
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "timeout", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_http2) {
-    const char *capability = "unsupported";
-    const char *message = "Target cannot preserve HTTP/2 selection";
-    if(target &&
-       (strcmp(target, "c.libcurl") == 0 ||
-        strcmp(target, "go.net_http") == 0 ||
-        strcmp(target, "rust.reqwest") == 0)) {
-      capability = "native";
-      message = NULL;
-    }
-    else if(target && strcmp(target, "python.requests") == 0) {
-      capability = "lossy";
-      message = "Target cannot force HTTP/2; requests will use transport defaults";
-    }
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "http.version.2", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_http3) {
-    const char *capability =
-      planner_target_supports_http3(target) ? "native" : "unsupported";
-    const char *message =
-      strcmp(capability, "native") == 0 ? NULL :
-      "Target cannot preserve HTTP/3 selection";
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "http.version.3", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-  if(has_external_refs) {
-    const char *capability =
-      (target && strcmp(target, "js.fetch") == 0 && has_filesystem_refs) ?
-      "unsupported" : "requires-runtime-helper";
-    const char *message =
-      strcmp(capability, "unsupported") == 0 ?
-      "Browser fetch cannot access local filesystem references" :
-      "Generated code must provide runtime handling for external references";
-    if(append_plan_step(&buffer, &state, &first_step,
-                        "external-ref", capability, message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-
-  if(json_buffer_append(&buffer, "]}]},\"support\":{\"level\":\"") != 0 ||
-     json_buffer_append(&buffer, planner_support_level(&state)) != 0 ||
-     json_buffer_append(&buffer, "\",\"items\":[") != 0) {
-    free(buffer.data);
-    return -1;
-  }
-
-  for(i = 0U; i < state.issue_count; ++i) {
-    if(i > 0U && json_buffer_append(&buffer, ",") != 0) {
-      free(buffer.data);
-      return -1;
-    }
-    if(json_buffer_appendf(&buffer,
-                           "{\"behavior\":\"%s\",\"level\":\"%s\","
-                           "\"message\":\"%s\"}",
-                           state.issues[i].behavior,
-                           state.issues[i].level,
-                           state.issues[i].message) != 0) {
-      free(buffer.data);
-      return -1;
-    }
-  }
-
-  if(json_buffer_append(&buffer, "]},\"diagnostics\":[") != 0) {
-    free(buffer.data);
-    return -1;
-  }
-
-  {
-    bool first_diagnostic = true;
-    for(i = 0U; i < state.issue_count; ++i) {
-      if(!state.issues[i].diagnostic) {
-        continue;
-      }
-      if(!first_diagnostic && json_buffer_append(&buffer, ",") != 0) {
-        free(buffer.data);
-        return -1;
-      }
-      first_diagnostic = false;
-      if(json_buffer_appendf(&buffer,
-                             "{\"code\":\"%s\","
-                             "\"severity\":\"error\","
-                             "\"category\":\"target\","
-                             "\"message\":\"%s\","
-                             "\"details\":{\"target\":\"%s\","
-                             "\"behavior\":\"%s\"}}",
-                             "E_TARGET_UNSUPPORTED",
-                             state.issues[i].message,
-                             target,
-                             state.issues[i].behavior) != 0) {
-        free(buffer.data);
-        return -1;
-      }
-    }
-  }
-
-  if(json_buffer_append(&buffer, "]}") != 0) {
-    free(buffer.data);
-    return -1;
-  }
-
-  *out_json = buffer.data;
-  *out_len = buffer.len;
-  return 0;
-}
-
 uint32_t curlparse_abi_version(void)
 {
-  return 1U;
+  return 2U;
 }
 
 uint32_t curlparse_alloc(uint32_t size)
@@ -1766,66 +1250,6 @@ int32_t curlparse_parse_json(
     state->parse_count += 1U;
   }
   return rc;
-}
-
-int32_t curlparse_generate_json(
-  uint32_t engine,
-  uint32_t input_ptr,
-  uint32_t input_len,
-  uint32_t out_pair_ptr
-)
-{
-  struct CurlparseEngine *state = engine_from_handle(engine);
-  const char *input_json;
-  unsigned char *out_pair;
-  char *input_copy;
-  char target[32];
-  char *output_json = NULL;
-  size_t output_len = 0;
-  int32_t write_rc;
-
-  if(!state || state->disposed) {
-    return CURLPARSE_ERR_ENGINE;
-  }
-
-  input_json = curlparse_native_ptr(input_ptr, input_len);
-  if(!input_json) {
-    return CURLPARSE_ERR_INVALID_INPUT;
-  }
-
-  out_pair = curlparse_native_ptr(out_pair_ptr, 8U);
-  if(!out_pair) {
-    return CURLPARSE_ERR_OUTPUT_PAIR;
-  }
-
-  input_copy = malloc((size_t)input_len + 1U);
-  if(!input_copy) {
-    return CURLPARSE_ERR_PARSE;
-  }
-  memcpy(input_copy, input_json, input_len);
-  input_copy[input_len] = '\0';
-
-  if(extract_json_string_field(input_copy,
-                               "target",
-                               target,
-                               sizeof(target)) != 0 ||
-     !planner_target_is_known(target)) {
-    free(input_copy);
-    return CURLPARSE_ERR_INVALID_INPUT;
-  }
-
-  if(render_generate_request_plan(input_copy,
-                                  target,
-                                  &output_json,
-                                  &output_len) != 0) {
-    free(input_copy);
-    return CURLPARSE_ERR_PARSE;
-  }
-
-  write_rc = write_output_json_to_pair(output_json, output_len, out_pair);
-  free(output_json);
-  free(input_copy);
-  return write_rc;
 }
 
 int curlparse_parse_native_json(

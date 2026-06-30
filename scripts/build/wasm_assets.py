@@ -49,7 +49,7 @@ def _display_path(path: Path, repo_root: Path) -> str:
 
 
 def _repair_hint(asset: WasmAsset) -> str:
-    return "python scripts/build/build_node_package.py"
+    return "nix develop --command python scripts/build/build_node_package.py"
 
 
 def require_root_wasm(repo_root: Path = REPO_ROOT) -> Path:
@@ -57,7 +57,7 @@ def require_root_wasm(repo_root: Path = REPO_ROOT) -> Path:
     if not source.is_file():
         raise SystemExit(
             f"{ROOT_WASM_RELATIVE.as_posix()} missing; "
-            "run python scripts/tasks.py build-wasm"
+            "run nix develop --command python scripts/tasks.py build-wasm"
         )
     return source
 

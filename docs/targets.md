@@ -2,26 +2,19 @@
 
 Generators consume Curl IR and target capability data. Capability manifests live
 under `generators/capabilities/` and use
-`schemas/target-capabilities.v1.schema.json`.
+`schemas/target-capabilities.v2.schema.json`.
 
 ## Target Summary
 
 | Target | Library | Generated files | Capability manifest |
 | --- | --- | --- | --- |
-| `c.libcurl` | libcurl C API | `main.c` | `generators/capabilities/c.libcurl.json` |
 | `python.requests` | `requests` | `main.py` | `generators/capabilities/python.requests.json` |
+| `python.httpx` | `httpx` | `main.py` | `generators/capabilities/python.httpx.json` |
 | `js.fetch` | standard Fetch API | `main.js` | `generators/capabilities/js.fetch.json` |
 | `js.undici` | `undici` | `main.mjs` | `generators/capabilities/js.undici.json` |
+| `js.axios` | `axios` | `main.mjs` | `generators/capabilities/js.axios.json` |
 | `go.net_http` | Go `net/http` | `main.go`, optional helpers | `generators/capabilities/go.net_http.json` |
 | `rust.reqwest` | `reqwest` | `Cargo.toml`, `src/main.rs`, `src/async_main.rs` | `generators/capabilities/rust.reqwest.json` |
-
-## c.libcurl
-
-- URL, method, headers, body, TLS verify, proxy, HTTP/2, and HTTP/3 are native
-  when supported by the runtime profile.
-- Multipart form data is native through curl mime APIs.
-- File, stdin, output, and local capability needs are represented through
-  `externalRefs`; generated C uses libcurl-native behavior where supported.
 
 ## python.requests
 
@@ -31,6 +24,13 @@ under `generators/capabilities/` and use
   selection.
 - HTTP/3 is unsupported.
 - Cookie jar paths and other local refs may require runtime helper behavior.
+
+## python.httpx
+
+- URL, method, headers, raw body, JSON body, multipart, TLS verify, auth,
+  cookies, redirects, timeouts, and HTTP/2 are native.
+- Proxy replay and local refs may require runtime helper wiring.
+- HTTP/3 is unsupported.
 
 ## js.fetch
 
@@ -45,6 +45,14 @@ under `generators/capabilities/` and use
 - URL, method, headers, raw body, JSON body, multipart, proxy, TLS verify,
   redirects, and timeout controls are supported through `undici` APIs.
 - Proxy support uses runtime helper wiring through `ProxyAgent`.
+- HTTP/2 and HTTP/3 selection are unsupported.
+- Local refs may require runtime file reads or helper behavior.
+
+## js.axios
+
+- URL, method, headers, raw body, JSON body, multipart, TLS verify, redirects,
+  and timeout controls are supported through Axios request options.
+- Proxy replay may require adapter-specific runtime wiring.
 - HTTP/2 and HTTP/3 selection are unsupported.
 - Local refs may require runtime file reads or helper behavior.
 

@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "curl-target-capabilities/v2",
+  "target": "python.httpx",
+  "library": {
+    "name": "httpx",
+    "ecosystem": "python",
+    "minimumVersion": "0.27",
+    "notes": "Synchronous Python httpx client target."
+  },
+  "behaviors": {
+    "url": {
+      "id": "url",
+      "capability": "native",
+      "message": "httpx accepts request URLs directly."
+    },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
+    "method": {
+      "id": "method",
+      "capability": "native",
+      "message": "httpx supports arbitrary HTTP methods."
+    },
+    "headers": {
+      "id": "headers",
+      "capability": "native",
+      "message": "httpx supports request headers.",
+      "unsafeWhen": "Duplicate header names collapse in generated Python mapping literals."
+    },
+    "body.raw": {
+      "id": "body.raw",
+      "capability": "native",
+      "message": "httpx supports raw body data."
+    },
+    "body.multipart": {
+      "id": "body.multipart",
+      "capability": "native",
+      "message": "httpx supports multipart form data."
+    },
+    "auth.basic": {
+      "id": "auth.basic",
+      "capability": "native",
+      "message": "httpx supports basic authentication."
+    },
+    "cookies.inline": {
+      "id": "cookies.inline",
+      "capability": "native",
+      "message": "httpx supports inline cookies."
+    },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "requires-runtime-helper",
+      "message": "Cookie jar files require helper loading through MozillaCookieJar.",
+      "requiredRuntime": "Filesystem access to the referenced cookie jar file."
+    },
+    "proxy": {
+      "id": "proxy",
+      "capability": "native",
+      "message": "httpx supports per-request proxy configuration."
+    },
+    "tls.verify": {
+      "id": "tls.verify",
+      "capability": "native",
+      "message": "httpx supports TLS verification settings."
+    },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "httpx can pass a per-client CA bundle path."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "httpx can pass TLS client certificate paths."
+    },
+    "network": {
+      "id": "network",
+      "capability": "unsupported",
+      "message": "httpx output does not preserve curl network binding or connection routing."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "unsupported",
+      "message": "httpx output does not preserve curl DNS resolver overrides."
+    },
+    "redirects": {
+      "id": "redirects",
+      "capability": "native",
+      "message": "httpx supports redirect following controls."
+    },
+    "timeout": {
+      "id": "timeout",
+      "capability": "native",
+      "message": "httpx supports connect and request timeouts."
+    },
+    "http.version.2": {
+      "id": "http.version.2",
+      "capability": "native",
+      "message": "httpx supports HTTP/2 through client configuration.",
+      "requiredFeature": "HTTP/2 support enabled for httpx."
+    },
+    "http.version.3": {
+      "id": "http.version.3",
+      "capability": "unsupported",
+      "message": "httpx does not expose HTTP/3 selection."
+    },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "httpx event hooks can log request and response boundaries but not curl wire traces."
+    },
+    "external-ref": {
+      "id": "external-ref",
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Filesystem or stdin access to referenced inputs."
+    }
+  }
+}

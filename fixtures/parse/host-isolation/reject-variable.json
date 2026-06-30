@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "variable file expansion is rejected before host read",
+      "argv": [
+        "curl",
+        "--variable",
+        "secret@secret.txt",
+        "https://example.com"
+      ],
+      "expected": {
+        "ok": false,
+        "errors": [
+          {
+            "code": "E_PARSE_HOST_DEPENDENCY_UNSUPPORTED",
+            "option": "--variable",
+            "detail": "option requires host-dependent curl CLI behavior",
+            "warning": false
+          }
+        ],
+        "effective": {
+          "method": { "value": "GET", "source": "default" }
+        },
+        "externalRefs": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "cookie file and jar become external refs",
+      "argv": [
+        "curl",
+        "--cookie",
+        "cookies.txt",
+        "--cookie-jar",
+        "cookies.jar",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "cookies": [
+            {
+              "kind": "file",
+              "value": "cookies.txt",
+              "externalRefId": "external-0"
+            }
+          ]
+        },
+        "externalRefs": [
+          {
+            "id": "external-0",
+            "kind": "file",
+            "access": "read",
+            "option": "--cookie",
+            "value": "cookies.txt",
+            "source": { "source": "argv", "argvIndex": 2, "start": 0, "end": 11 }
+          },
+          {
+            "id": "external-1",
+            "kind": "cookie-jar",
+            "access": "read-write",
+            "option": "--cookie-jar",
+            "value": "cookies.jar",
+            "source": { "source": "argv", "argvIndex": 4, "start": 0, "end": 11 }
+          }
+        ]
+      }
+    }
+  ]
+}

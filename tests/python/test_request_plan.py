@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -9,29 +10,9 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CAPABILITY_DIR = REPO_ROOT / "generators" / "capabilities"
-REQUIRED_TARGETS = [
-    "c.libcurl",
-    "python.requests",
-    "js.fetch",
-    "go.net_http",
-    "rust.reqwest",
-]
-REQUIRED_BEHAVIORS = [
-    "url",
-    "method",
-    "headers",
-    "body.raw",
-    "body.multipart",
-    "auth.basic",
-    "cookies.inline",
-    "proxy",
-    "tls.verify",
-    "redirects",
-    "timeout",
-    "http.version.2",
-    "http.version.3",
-    "external-ref",
-]
+SCHEMA_DIR = REPO_ROOT / "schemas"
+BEHAVIOR_REGISTRY = REPO_ROOT / "packages" / "node" / "src" / "generator" / "behaviors.ts"
+BEHAVIOR_ENTRY_PATTERN = re.compile(r'\{\s*id: "([^"]+)",.*?enabled: (true|false),\s*\}', re.DOTALL)
 CAPABILITY_LEVELS = {
     "native",
     "lossy",
@@ -44,30 +25,57 @@ SUPPORT_LEVELS = {
     "requires-runtime-helper",
     "unsupported",
 }
+SUPPORT_ITEM_LEVELS = {
+    "lossy",
+    "requires-runtime-helper",
+    "unsupported",
+}
 
 
 def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_capability_manifest(path: Path, target: str) -> None:
+def behavior_registry_ids() -> list[str]:
+    ids = [
+        behavior_id
+        for behavior_id, enabled in BEHAVIOR_ENTRY_PATTERN.findall(BEHAVIOR_REGISTRY.read_text(encoding="utf-8"))
+        if enabled == "true"
+    ]
+    assert ids, "behavior registry must define IDs"
+    assert len(ids) == len(set(ids)), "behavior registry IDs must be unique"
+    return ids
+
+
+def target_ids() -> list[str]:
+    schema = load_json(SCHEMA_DIR / "generate-input.v2.schema.json")
+    targets = schema["$defs"]["target"]["enum"]
+    assert isinstance(targets, list)
+    assert all(isinstance(target, str) for target in targets)
+    return targets
+
+
+def validate_capability_manifest(path: Path, target: str, required_behaviors: list[str]) -> None:
     payload = load_json(path)
-    assert payload["schemaVersion"] == "curl-target-capabilities/v1"
+    assert payload["schemaVersion"] == "curl-target-capabilities/v2"
     assert payload["target"] == target
     assert isinstance(payload["library"]["name"], str)
     assert isinstance(payload["library"]["ecosystem"], str)
     behaviors = payload["behaviors"]
-    missing = [name for name in REQUIRED_BEHAVIORS if name not in behaviors]
+    missing = [name for name in required_behaviors if name not in behaviors]
     assert not missing, f"{path}: missing behaviors {missing}"
     for behavior, entry in behaviors.items():
-        assert behavior in REQUIRED_BEHAVIORS, f"{path}: unexpected behavior {behavior}"
+        assert behavior in required_behaviors, f"{path}: unexpected behavior {behavior}"
+        assert entry["id"] == behavior
         assert entry["capability"] in CAPABILITY_LEVELS
         assert isinstance(entry["message"], str) and entry["message"]
 
 
 def validate_capability_matrix() -> None:
-    for target in REQUIRED_TARGETS:
-        validate_capability_manifest(CAPABILITY_DIR / f"{target}.json", target)
+    required_behaviors = behavior_registry_ids()
+    for target in target_ids():
+        path = CAPABILITY_DIR / f"{target}.json"
+        validate_capability_manifest(path, target, required_behaviors)
 
 
 def generate_with_node(argv: list[str], target: str) -> dict[str, Any]:
@@ -95,7 +103,8 @@ def validate_request_plan(
     *,
     files_empty: bool = True,
 ) -> None:
-    assert output["schemaVersion"] == "curl-generate-output/v1"
+    behavior_ids = set(behavior_registry_ids())
+    assert output["schemaVersion"] == "curl-generate-output/v2"
     assert output["target"] == target
     if files_empty:
         assert output["files"] == []
@@ -111,6 +120,7 @@ def validate_request_plan(
         for step in transfer["steps"]:
             assert set(step).issubset({"behavior", "capability", "message"})
             assert isinstance(step["behavior"], str)
+            assert step["behavior"] in behavior_ids
             assert step["capability"] in CAPABILITY_LEVELS
             if "message" in step:
                 assert isinstance(step["message"], str)
@@ -121,7 +131,8 @@ def validate_request_plan(
     for item in support["items"]:
         assert set(item).issubset({"behavior", "level", "message", "source"})
         assert isinstance(item["behavior"], str)
-        assert item["level"] in SUPPORT_LEVELS
+        assert item["behavior"] in behavior_ids
+        assert item["level"] in SUPPORT_ITEM_LEVELS
         assert isinstance(item["message"], str)
 
     diagnostics = output["diagnostics"]
@@ -169,19 +180,81 @@ def test_js_fetch_http3_is_unsupported() -> None:
     }
 
 
-def test_libcurl_http3_is_exact() -> None:
-    output = generate_with_node(["curl", "--http3", "https://example.com"], "c.libcurl")
-    validate_request_plan(output, "c.libcurl", files_empty=False)
+def test_httpx_http2_is_exact() -> None:
+    output = generate_with_node(["curl", "--http2", "https://example.com"], "python.httpx")
+    validate_request_plan(output, "python.httpx", files_empty=False)
     steps = steps_by_behavior(output)
-    assert steps["http.version.3"]["capability"] == "native"
+    assert steps["http.version.2"]["capability"] == "native"
     assert output["support"] == {"level": "exact", "items": []}
     assert output["diagnostics"] == []
+
+
+def test_go_http2_prior_knowledge_is_lossy() -> None:
+    output = generate_with_node(["curl", "--http2-prior-knowledge", "https://example.com"], "go.net_http")
+    validate_request_plan(output, "go.net_http", files_empty=False)
+    steps = steps_by_behavior(output)
+    assert steps["http.version.2"]["capability"] == "lossy"
+    assert output["support"]["level"] == "lossy"
+    assert output["diagnostics"][0]["code"] == "W_TARGET_LOSSY"
+
+
+def test_go_dns_network_require_helper() -> None:
+    output = generate_with_node(
+        [
+            "curl",
+            "--resolve",
+            "example.com:443:203.0.113.10",
+            "--interface",
+            "eth0",
+            "https://example.com",
+        ],
+        "go.net_http",
+    )
+    validate_request_plan(output, "go.net_http", files_empty=False)
+    steps = steps_by_behavior(output)
+    assert steps["dns"]["capability"] == "requires-runtime-helper"
+    assert steps["network"]["capability"] == "requires-runtime-helper"
+    assert output["support"]["level"] == "requires-runtime-helper"
+
+
+def test_rust_reqwest_tls_verify_is_unsafe_lossy() -> None:
+    output = generate_with_node(["curl", "-k", "https://example.com"], "rust.reqwest")
+    validate_request_plan(output, "rust.reqwest", files_empty=False)
+    steps = steps_by_behavior(output)
+    assert steps["tls.verify"]["capability"] == "lossy"
+    assert output["support"]["level"] == "lossy"
+    assert output["diagnostics"][0]["code"] == "W_TARGET_UNSAFE"
+
+
+def test_rust_reqwest_dns_network_require_helper() -> None:
+    output = generate_with_node(
+        [
+            "curl",
+            "--resolve",
+            "example.com:443:203.0.113.10",
+            "--interface",
+            "eth0",
+            "--connect-to",
+            "example.com:443:backend.example:8443",
+            "https://example.com",
+        ],
+        "rust.reqwest",
+    )
+    validate_request_plan(output, "rust.reqwest", files_empty=False)
+    steps = steps_by_behavior(output)
+    assert steps["dns"]["capability"] == "requires-runtime-helper"
+    assert steps["network"]["capability"] == "requires-runtime-helper"
+    assert output["support"]["level"] == "requires-runtime-helper"
 
 
 def main() -> int:
     validate_capability_matrix()
     test_js_fetch_http3_is_unsupported()
-    test_libcurl_http3_is_exact()
+    test_httpx_http2_is_exact()
+    test_go_http2_prior_knowledge_is_lossy()
+    test_go_dns_network_require_helper()
+    test_rust_reqwest_tls_verify_is_unsafe_lossy()
+    test_rust_reqwest_dns_network_require_helper()
     print("request plan ok")
     return 0
 

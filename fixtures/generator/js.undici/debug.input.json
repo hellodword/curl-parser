@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.undici",
+  "argv": [
+    "curl",
+    "-v",
+    "https://example.com"
+  ],
+  "support": "lossy",
+  "diagnostic": "W_TARGET_LOSSY",
+  "contains": [
+    "diagnosticsChannel",
+    "subscribeUndiciDiagnostics();",
+    "\"undici:request:create\""
+  ]
+}

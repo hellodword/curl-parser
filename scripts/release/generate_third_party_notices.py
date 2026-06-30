@@ -27,9 +27,10 @@ input under `third_party/curl/{tag}/`.
 - Upstream commit: `{commit}`
 - Upstream license: MIT-like (`{license_file}` in the vendored source tree)
 
-The curl source tree is downloaded by `python scripts/tasks.py bootstrap` and is
-not tracked in this git repository. The generated local manifest records copied
-files and SHA-256 checksums for audit and release reproduction.
+The curl source tree is downloaded by
+`nix develop --command python scripts/tasks.py bootstrap` and is not tracked in this
+git repository. The generated local manifest records copied files and SHA-256
+checksums for audit and release reproduction.
 """
     NOTICE_PATH.write_text(text, encoding="utf-8")
     return 0

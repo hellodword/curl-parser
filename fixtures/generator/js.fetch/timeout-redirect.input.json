@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.fetch",
+  "argv": [
+    "curl",
+    "-L",
+    "--max-redirs",
+    "2",
+    "--max-time",
+    "5",
+    "https://example.com"
+  ],
+  "support": "requires-runtime-helper",
+  "contains": [
+    "redirect: \"follow\"",
+    "new AbortController()",
+    "setTimeout(() => controller.abort(), 5000)"
+  ]
+}

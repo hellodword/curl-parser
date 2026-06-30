@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "interface local port connect-to and haproxy",
+      "argv": [
+        "curl",
+        "--interface",
+        "eth0",
+        "--local-port",
+        "4000-4002",
+        "--ipv6",
+        "--connect-to",
+        "example.com:443:backend.example:8443",
+        "--haproxy-protocol",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "network": {
+            "interface": "eth0",
+            "interfaceRefId": "external-0",
+            "localPort": "4000-4002",
+            "ipVersion": "ipv6",
+            "connectTo": ["example.com:443:backend.example:8443"],
+            "haproxyProtocol": true
+          }
+        },
+        "externalRefs": [
+          { "id": "external-0", "kind": "network-interface", "value": "eth0" }
+        ]
+      }
+    }
+  ]
+}

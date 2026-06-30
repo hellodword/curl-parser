@@ -1,13 +1,13 @@
 import type {
   CurlIr,
-  Diagnostic,
-  SupportItem,
   GenerateInput,
   GenerateOutput,
   GeneratedFile,
 } from "./types.js";
 
 type JsonRecord = Record<string, unknown>;
+type RuntimeHelpersMode = "allow" | "inline" | "forbid";
+type PythonClientStyle = "sync" | "async";
 
 function asRecord(value: unknown): JsonRecord | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -23,6 +23,10 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function httpVersionValue(value: unknown): string | undefined {
+  return asString(value) ?? asString(asRecord(value)?.value);
+}
+
 function externalRefById(ir: CurlIr, id: string | undefined): JsonRecord | undefined {
   if (!id) {
     return undefined;
@@ -36,9 +40,32 @@ function bodyExternalRef(ir: CurlIr, body: JsonRecord | undefined): JsonRecord |
   return externalRefById(ir, asString(body?.externalRefId));
 }
 
-function pythonExternalRead(ref: JsonRecord | undefined): string | undefined {
+function refById(ir: CurlIr, id: unknown): JsonRecord | undefined {
+  return externalRefById(ir, asString(id));
+}
+
+function refValue(ref: JsonRecord | undefined): string | undefined {
+  return asString(ref?.value);
+}
+
+function runtimeHelpers(input: GenerateInput): RuntimeHelpersMode {
+  return input.options?.runtimeHelpers ?? "allow";
+}
+
+function pythonStyle(input: GenerateInput): PythonClientStyle {
+  return input.target === "python.httpx" && input.options?.style === "async" ? "async" : "sync";
+}
+
+function refToken(ref: JsonRecord): string {
+  return asString(ref.id) ?? "external";
+}
+
+function pythonExternalRead(input: GenerateInput, ref: JsonRecord | undefined): string | undefined {
   if (!ref) {
     return undefined;
+  }
+  if (runtimeHelpers(input) === "inline") {
+    return `load_external_bytes(${pythonString(refToken(ref))})`;
   }
   if (ref.kind === "stdin") {
     return "sys.stdin.buffer.read()";
@@ -59,29 +86,6 @@ function transferRecords(ir: CurlIr): JsonRecord[] {
     }
   }
   return transfers;
-}
-
-function argvStrings(ir: CurlIr): string[] {
-  return asArray(ir.command.argv).filter((value): value is string => typeof value === "string");
-}
-
-function flagValue(argv: string[], ...flags: string[]): string | undefined {
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
-    for (const flag of flags) {
-      if (value === flag) {
-        return argv[index + 1];
-      }
-      if (value.startsWith(`${flag}=`)) {
-        return value.slice(flag.length + 1);
-      }
-    }
-  }
-  return undefined;
-}
-
-function hasFlag(argv: string[], ...flags: string[]): boolean {
-  return argv.some((value) => flags.includes(value));
 }
 
 function pythonString(value: string): string {
@@ -140,28 +144,18 @@ function externalHeaderRefs(ir: CurlIr, effective: JsonRecord): JsonRecord[] {
     .filter((value): value is JsonRecord => Boolean(value));
 }
 
-function pythonExternalText(ref: JsonRecord | undefined): string | undefined {
+function pythonExternalText(input: GenerateInput, ref: JsonRecord | undefined): string | undefined {
   if (!ref) {
     return undefined;
+  }
+  if (runtimeHelpers(input) === "inline") {
+    return `load_external_text(${pythonString(refToken(ref))})`;
   }
   if (ref.kind === "stdin") {
     return "sys.stdin.read()";
   }
   const value = asString(ref.value);
   return value ? `Path(${pythonString(value)}).read_text()` : undefined;
-}
-
-function duplicateHeaderNames(headers: Array<[string, string]>): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const [name] of headers) {
-    const key = name.toLowerCase();
-    if (seen.has(key)) {
-      duplicates.add(name);
-    }
-    seen.add(key);
-  }
-  return [...duplicates];
 }
 
 function cookieEntries(value: string): Array<[string, string]> {
@@ -183,9 +177,10 @@ function inlineCookieValue(effective: JsonRecord): string | undefined {
     .find((value) => typeof value === "string" && value.includes("="));
 }
 
-function cookieJarPath(argv: string[]): string | undefined {
-  const value = flagValue(argv, "-b", "--cookie", "--cookie-jar");
-  return value && !value.includes("=") ? value : undefined;
+function cookieJarRef(ir: CurlIr, effective: JsonRecord): JsonRecord | undefined {
+  return asArray(effective.cookies)
+    .map((value) => refById(ir, asRecord(value)?.externalRefId))
+    .find((value): value is JsonRecord => Boolean(value));
 }
 
 function splitFormValue(value: string): [string, string] {
@@ -212,68 +207,168 @@ function jsonBodyFromBody(bodyKind: string | undefined, bodyValue: string): unkn
   }
 }
 
-function seconds(value: string | undefined): number | undefined {
-  if (!value) {
+function secondsFromMilliseconds(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return undefined;
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
-}
-
-const levelRank: Record<string, number> = {
-  exact: 0,
-  lossy: 1,
-  "requires-runtime-helper": 2,
-  unsupported: 3,
-};
-
-function aggregateLevel(current: string, next: string): string {
-  return (levelRank[next] ?? 0) > (levelRank[current] ?? 0) ? next : current;
-}
-
-function withSupportItem(output: GenerateOutput, item: SupportItem): GenerateOutput {
-  return {
-    ...output,
-    support: {
-      level: aggregateLevel(output.support.level, item.level ?? "exact"),
-      items: [...output.support.items, item],
-    },
-  };
-}
-
-function withDiagnostic(output: GenerateOutput, diagnostic: Diagnostic): GenerateOutput {
-  return {
-    ...output,
-    diagnostics: [...output.diagnostics, diagnostic],
-  };
+  return value / 1000;
 }
 
 function variableName(base: string, index: number, multi: boolean): string {
   return multi ? `${base}_${index}` : base;
 }
 
-function renderPythonRequestBlock(input: GenerateInput, transfer: JsonRecord | undefined, index: number, multi: boolean): string[] {
+function pythonLibrary(input: GenerateInput): "requests" | "httpx" {
+  return input.target === "python.httpx" ? "httpx" : "requests";
+}
+
+function usesHttp2(ir: CurlIr): boolean {
+  return transferRecords(ir).some((transfer) =>
+    httpVersionValue(asRecord(transfer.effective)?.httpVersion) === "2"
+  );
+}
+
+function usesDebug(ir: CurlIr): boolean {
+  return transferRecords(ir).some((transfer) => {
+    const debug = asRecord(asRecord(transfer.effective)?.debug);
+    return debug ? Object.keys(debug).length > 0 : false;
+  });
+}
+
+function needsInlineExternalHelpers(input: GenerateInput): boolean {
+  return runtimeHelpers(input) === "inline" && input.ir.externalRefs.length > 0;
+}
+
+function certificateExpression(ir: CurlIr, tls: JsonRecord | undefined): string | undefined {
+  const cert = refValue(refById(ir, tls?.clientCertRefId)) ?? asString(tls?.clientCert);
+  const key = refValue(refById(ir, tls?.clientKeyRefId));
+  if (cert && key) {
+    return `(${pythonString(cert)}, ${pythonString(key)})`;
+  }
+  return cert ? pythonString(cert) : undefined;
+}
+
+function caBundleExpression(ir: CurlIr, tls: JsonRecord | undefined): string | undefined {
+  return refValue(refById(ir, tls?.caFileRefId)) ?? asString(tls?.caBundle);
+}
+
+function cookieJarArgument(input: GenerateInput, ref: JsonRecord | undefined): string | undefined {
+  if (!ref) {
+    return undefined;
+  }
+  if (runtimeHelpers(input) === "inline") {
+    return pythonString(refToken(ref));
+  }
+  const value = refValue(ref);
+  return value ? pythonString(value) : undefined;
+}
+
+function firstEffective(input: GenerateInput): JsonRecord {
+  const transfer = transferRecords(input.ir)[0];
+  return asRecord(transfer?.effective) ?? {};
+}
+
+function timeoutExpression(
+  library: "requests" | "httpx",
+  connectTimeout: number | undefined,
+  maxTime: number | undefined,
+): string | undefined {
+  if (library === "httpx") {
+    if (connectTimeout !== undefined && maxTime !== undefined) {
+      return `httpx.Timeout(${maxTime}, connect=${connectTimeout})`;
+    }
+    if (maxTime !== undefined) {
+      return String(maxTime);
+    }
+    if (connectTimeout !== undefined) {
+      return `httpx.Timeout(None, connect=${connectTimeout})`;
+    }
+    return undefined;
+  }
+  if (connectTimeout !== undefined && maxTime !== undefined) {
+    return `(${connectTimeout}, ${maxTime})`;
+  }
+  if (maxTime !== undefined) {
+    return String(maxTime);
+  }
+  if (connectTimeout !== undefined) {
+    return `(${connectTimeout}, None)`;
+  }
+  return undefined;
+}
+
+function httpxClientArgs(input: GenerateInput): string {
+  if (input.target !== "python.httpx") {
+    return "";
+  }
+
+  const effective = firstEffective(input);
+  const proxy = asString(asRecord(effective.proxy)?.url);
+  const tls = asRecord(effective.tls);
+  const redirects = asRecord(effective.redirects);
+  const cert = certificateExpression(input.ir, tls);
+  const caBundle = caBundleExpression(input.ir, tls);
+  const args: string[] = [];
+
+  if (usesHttp2(input.ir)) {
+    args.push("http2=True");
+  }
+  if (proxy) {
+    args.push(`proxy=${pythonString(proxy)}`);
+  }
+  if (tls?.verify === false) {
+    args.push("verify=False");
+  } else if (caBundle) {
+    args.push(`verify=${pythonString(caBundle)}`);
+  }
+  if (cert) {
+    args.push(`cert=${cert}`);
+  }
+  if (typeof redirects?.max === "number") {
+    args.push(`max_redirects=${redirects.max}`);
+  }
+  if (usesDebug(input.ir)) {
+    args.push('event_hooks={"request": [log_request], "response": [log_response]}');
+  }
+
+  return args.join(", ");
+}
+
+function renderPythonRequestBlock(
+  input: GenerateInput,
+  transfer: JsonRecord | undefined,
+  index: number,
+  multi: boolean,
+  awaitRequest = false,
+): string[] {
   const ir = input.ir;
+  const library = pythonLibrary(input);
   const effective = asRecord(transfer?.effective) ?? {};
   const method = asString(asRecord(effective.method)?.value) ?? "GET";
   const body = asRecord(effective.body);
   const bodyKind = asString(body?.kind);
   const bodyValue = asString(body?.value) ?? "";
-  const auth = asString(asRecord(effective.auth)?.value);
-  const proxy = asString(asRecord(effective.proxy)?.url);
+  const authRecord = asRecord(effective.auth);
+  const auth = asString(authRecord?.value);
+  const authScheme = asString(authRecord?.scheme);
+  const proxyRecord = asRecord(effective.proxy);
+  const proxy = asString(proxyRecord?.url);
+  const noProxy = asString(proxyRecord?.noProxy);
   const tls = asRecord(effective.tls);
-  const argv = argvStrings(ir);
+  const redirects = asRecord(effective.redirects);
+  const timeouts = asRecord(effective.timeouts);
   const headers = headerEntries(effective);
   const externalHeaders = externalHeaderRefs(ir, effective);
   const cookieValue = inlineCookieValue(effective);
-  const jarPath = cookieJarPath(argv);
-  const connectTimeout = seconds(flagValue(argv, "--connect-timeout"));
-  const maxTime = seconds(flagValue(argv, "--max-time", "-m"));
-  const cert = flagValue(argv, "--cert", "-E");
-  const caBundle = flagValue(argv, "--cacert");
+  const jarRef = cookieJarRef(ir, effective);
+  const jarArgument = cookieJarArgument(input, jarRef);
+  const connectTimeout = secondsFromMilliseconds(timeouts?.connectTimeoutMs);
+  const maxTime = secondsFromMilliseconds(timeouts?.maxTimeMs);
+  const cert = certificateExpression(ir, tls);
+  const caBundle = caBundleExpression(ir, tls);
   const jsonBody = jsonBodyFromBody(bodyKind, bodyValue);
   const externalBody = bodyExternalRef(ir, body);
-  const externalBodyRead = pythonExternalRead(externalBody);
+  const externalBodyRead = pythonExternalRead(input, externalBody);
   const requestMethod = jsonBody !== undefined && method === "GET" ? "POST" : method;
   const urlName = variableName("url", index, multi);
   const headersName = variableName("headers", index, multi);
@@ -289,7 +384,7 @@ function renderPythonRequestBlock(input: GenerateInput, transfer: JsonRecord | u
   ];
 
   for (const ref of externalHeaders) {
-    const text = pythonExternalText(ref);
+    const text = pythonExternalText(input, ref);
     if (text) {
       lines.push(`    ${headersName}.update(parse_header_lines(${text}))`);
     }
@@ -327,38 +422,51 @@ function renderPythonRequestBlock(input: GenerateInput, transfer: JsonRecord | u
 
   if (auth) {
     const [username, password = ""] = auth.split(":", 2);
-    lines.push(
-      `    ${kwargsName}["auth"] = (${pythonString(username)}, ${pythonString(password)})`,
-    );
+    if (authScheme === "digest") {
+      const authClass = library === "httpx" ? "httpx.DigestAuth" : "requests.auth.HTTPDigestAuth";
+      lines.push(`    ${kwargsName}["auth"] = ${authClass}(${pythonString(username)}, ${pythonString(password)})`);
+    } else {
+      lines.push(
+        `    ${kwargsName}["auth"] = (${pythonString(username)}, ${pythonString(password)})`,
+      );
+    }
   }
   if (cookieValue) {
     lines.push(`    ${kwargsName}["cookies"] = ${pythonDict(cookieEntries(cookieValue))}`);
   }
-  if (jarPath) {
-    lines.push(`    session.cookies.update(load_cookie_jar(${pythonString(jarPath)}))`);
+  if (jarArgument) {
+    lines.push(`    session.cookies.update(load_cookie_jar(${jarArgument}))`);
   }
-  if (proxy) {
+  if (proxy && library === "requests") {
     lines.push(
       `    ${kwargsName}["proxies"] = {"http": ${pythonString(proxy)}, "https": ${pythonString(proxy)}}`,
     );
+    if (noProxy) {
+      lines.push(`    ${kwargsName}["proxies"]["no_proxy"] = ${pythonString(noProxy)}`);
+    }
   }
-  if (tls?.verify === false || hasFlag(argv, "-k", "--insecure")) {
+  if (library === "requests" && tls?.verify === false) {
     lines.push(`    ${kwargsName}["verify"] = False`);
-  } else if (caBundle) {
+  } else if (library === "requests" && caBundle) {
     lines.push(`    ${kwargsName}["verify"] = ${pythonString(caBundle)}`);
   }
-  if (cert) {
-    lines.push(`    ${kwargsName}["cert"] = ${pythonString(cert)}`);
+  if (library === "requests" && cert) {
+    lines.push(`    ${kwargsName}["cert"] = ${cert}`);
   }
-  if (connectTimeout !== undefined && maxTime !== undefined) {
-    lines.push(`    ${kwargsName}["timeout"] = (${connectTimeout}, ${maxTime})`);
-  } else if (maxTime !== undefined) {
-    lines.push(`    ${kwargsName}["timeout"] = ${maxTime}`);
-  } else if (connectTimeout !== undefined) {
-    lines.push(`    ${kwargsName}["timeout"] = (${connectTimeout}, None)`);
+  {
+    const timeout = timeoutExpression(library, connectTimeout, maxTime);
+    if (timeout) {
+      lines.push(`    ${kwargsName}["timeout"] = ${timeout}`);
+    }
   }
+  if (library === "requests" && typeof redirects?.max === "number") {
+    lines.push(`    session.max_redirects = ${redirects.max}`);
+  }
+  lines.push(
+    `    ${kwargsName}[${pythonString(library === "httpx" ? "follow_redirects" : "allow_redirects")}] = ${redirects?.follow === true ? "True" : "False"}`,
+  );
 
-  const requestLine = `${responseName} = session.request(${pythonString(requestMethod)}, ${urlName}, **${kwargsName})`;
+  const requestLine = `${responseName} = ${awaitRequest ? "await " : ""}session.request(${pythonString(requestMethod)}, ${urlName}, **${kwargsName})`;
   if (bodyKind === "upload-file") {
     lines.push("    try:");
     lines.push(`        ${uploadName} = open(${pythonString(bodyValue)}, "rb")`);
@@ -382,18 +490,33 @@ function renderPythonRequestsMain(input: GenerateInput): string {
   const transfers = transferRecords(input.ir);
   const renderTransfers = transfers.length > 0 ? transfers : [undefined];
   const multi = renderTransfers.length > 1;
+  const library = pythonLibrary(input);
+  const style = pythonStyle(input);
+  const clientArgs = library === "httpx" ? httpxClientArgs(input) : "";
+  const inlineExternalHelpers = needsInlineExternalHelpers(input);
+  const inlineCookieJar = inlineExternalHelpers;
+  const debugHooks = library === "httpx" && usesDebug(input.ir);
+  const indent = (linesToIndent: string[]) =>
+    linesToIndent.map((line) => line.length > 0 ? `    ${line}` : line);
   const lines = [
     "from http.cookiejar import MozillaCookieJar",
     "from pathlib import Path",
+    ...(style === "async" ? ["import asyncio"] : []),
     "import sys",
     "",
-    "import requests",
+    `import ${library}`,
     "",
     "",
     "def load_cookie_jar(path):",
-    "    jar = MozillaCookieJar()",
-    "    jar.load(path, ignore_discard=True, ignore_expires=True)",
-    "    return jar",
+    ...(inlineCookieJar
+      ? [
+          "    raise RuntimeError(f\"External cookie jar {path} must be provided by the caller\")",
+        ]
+      : [
+          "    jar = MozillaCookieJar()",
+          "    jar.load(path, ignore_discard=True, ignore_expires=True)",
+          "    return jar",
+        ]),
     "",
     "",
     "def parse_header_lines(text):",
@@ -407,85 +530,59 @@ function renderPythonRequestsMain(input: GenerateInput): string {
     "    return headers",
     "",
     "",
-    "def main():",
-    "    session = requests.Session()",
+    ...(inlineExternalHelpers
+      ? [
+          "def load_external_bytes(ref_id):",
+          "    raise RuntimeError(f\"External reference {ref_id} must be provided by the caller\")",
+          "",
+          "",
+          "def load_external_text(ref_id):",
+          "    return load_external_bytes(ref_id).decode()",
+          "",
+          "",
+        ]
+      : []),
+    ...(debugHooks
+      ? [
+          `${style === "async" ? "async " : ""}def log_request(request):`,
+          "    print(f\"> {request.method} {request.url}\", file=sys.stderr)",
+          "",
+          "",
+          `${style === "async" ? "async " : ""}def log_response(response):`,
+          "    print(f\"< {response.status_code} {response.reason_phrase}\", file=sys.stderr)",
+          "",
+          "",
+        ]
+      : []),
+    `${style === "async" ? "async " : ""}def main():`,
   ];
 
-  for (const [index, transfer] of renderTransfers.entries()) {
-    lines.push(...renderPythonRequestBlock(input, transfer, index, multi));
+  if (library === "httpx") {
+    const clientClass = style === "async" ? "AsyncClient" : "Client";
+    const context = style === "async" ? "async with" : "with";
+    lines.push(`    ${context} httpx.${clientClass}(${clientArgs}) as session:`);
+    for (const [index, transfer] of renderTransfers.entries()) {
+      lines.push(...indent(renderPythonRequestBlock(
+        input,
+        transfer,
+        index,
+        multi,
+        style === "async",
+      )));
+    }
+  } else {
+    lines.push(`    session = requests.Session()`);
+    for (const [index, transfer] of renderTransfers.entries()) {
+      lines.push(...renderPythonRequestBlock(input, transfer, index, multi));
+    }
   }
 
   lines.push(
     "if __name__ == \"__main__\":",
-    "    main()",
+    style === "async" ? "    asyncio.run(main())" : "    main()",
     "",
   );
   return lines.join("\n");
-}
-
-function augmentPythonRequestsOutput(input: GenerateInput, output: GenerateOutput): GenerateOutput {
-  const ir = input.ir;
-  const argv = argvStrings(ir);
-  let next = output;
-
-  if (
-    transferRecords(ir).some((transfer) => asString(asRecord(transfer.effective)?.httpVersion) === "2") ||
-    hasFlag(argv, "--http2", "--http2-prior-knowledge")
-  ) {
-    next = withDiagnostic(next, {
-      code: "W_TARGET_LOSSY",
-      severity: "warning",
-      category: "target",
-      message: "requests cannot force HTTP/2; generated code uses transport defaults.",
-      details: {
-        target: "python.requests",
-        behavior: "http.version.2",
-      },
-    });
-  }
-
-  for (const transfer of transferRecords(ir)) {
-    const effective = asRecord(transfer.effective) ?? {};
-    const headers = headerEntries(effective);
-    const duplicates = duplicateHeaderNames(headers);
-    if (duplicates.length > 0) {
-      next = withSupportItem(next, {
-        behavior: "headers",
-        level: "lossy",
-        message: "requests headers are generated as a mapping; duplicate header names collapse.",
-      });
-      next = withDiagnostic(next, {
-        code: "W_TARGET_LOSSY",
-        severity: "warning",
-        category: "target",
-        message: "Duplicate headers collapse when represented as a requests header mapping.",
-        details: {
-          target: "python.requests",
-          behavior: "headers",
-        },
-      });
-    }
-  }
-
-  if (cookieJarPath(argv)) {
-    next = withSupportItem(next, {
-      behavior: "cookies.jar",
-      level: "requires-runtime-helper",
-      message: "Cookie jar files require helper loading through MozillaCookieJar.",
-    });
-    next = withDiagnostic(next, {
-      code: "W_TARGET_HELPER_REQUIRED",
-      severity: "warning",
-      category: "support",
-      message: "Cookie jar replay requires the generated load_cookie_jar helper.",
-      details: {
-        target: "python.requests",
-        behavior: "cookies.jar",
-      },
-    });
-  }
-
-  return next;
 }
 
 export function applyPythonRequestsGenerator(
@@ -499,8 +596,8 @@ export function applyPythonRequestsGenerator(
       content: renderPythonRequestsMain(input),
     },
   ];
-  return augmentPythonRequestsOutput(input, {
+  return {
     ...output,
     files,
-  });
+  };
 }

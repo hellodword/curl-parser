@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -16,11 +16,11 @@ function file(output) {
   return item;
 }
 
-async function generate(argv, parseOptions = {}) {
+async function generate(argv, parseOptions = {}, target = "python.requests", generateOptions = {}) {
   const parsed = await parseCurl(argv, parseOptions);
-  const output = await generateCode(parsed, { target: "python.requests" });
-  assert.equal(output.target, "python.requests");
-  assert.equal(output.plan.target, "python.requests");
+  const output = await generateCode(parsed, { target, options: generateOptions });
+  assert.equal(output.target, target);
+  assert.equal(output.plan.target, target);
   return { output, source: file(output).content };
 }
 
@@ -36,6 +36,13 @@ async function testGoldenShapes() {
   assert(get.source.includes("requests.Session()"));
   assert(get.source.includes('session.request("GET"'));
   await compilePython("get", get.source);
+
+  const httpx = await generate(["curl", "--http2", "https://example.com"], {}, "python.httpx");
+  assert.equal(httpx.output.support.level, "exact");
+  assert(httpx.source.includes("import httpx"));
+  assert(httpx.source.includes("httpx.Client(http2=True)"));
+  assert(httpx.source.includes('session.request("GET"'));
+  await compilePython("httpx-get", httpx.source);
 
   const post = await generate([
     "curl",
@@ -65,6 +72,52 @@ async function testGoldenShapes() {
   assert(multi.source.includes('session.request("GET", url_0'));
   assert(multi.source.includes('session.request("GET", url_1'));
   await compilePython("multi", multi.source);
+
+  const digest = await generate([
+    "curl",
+    "--digest",
+    "-u",
+    "alice:secret",
+    "https://example.com",
+  ]);
+  assert(digest.source.includes("requests.auth.HTTPDigestAuth"));
+  await compilePython("digest", digest.source);
+
+  const insecureTls = await generate(["curl", "-k", "https://example.com"]);
+  assert(insecureTls.source.includes('request_kwargs["verify"] = False'));
+  await compilePython("insecure-tls", insecureTls.source);
+
+  const timeout = await generate([
+    "curl",
+    "--connect-timeout",
+    "2.5",
+    "--max-time",
+    "5",
+    "https://example.com",
+  ]);
+  assert(timeout.source.includes('request_kwargs["timeout"] = (2.5, 5)'));
+  await compilePython("timeout", timeout.source);
+}
+
+async function testHttpxFeatures() {
+  const asyncHttpx = await generate(
+    ["curl", "https://example.com"],
+    {},
+    "python.httpx",
+    { style: "async" },
+  );
+  assert(asyncHttpx.source.includes("import asyncio"));
+  assert(asyncHttpx.source.includes("async with httpx.AsyncClient("));
+  assert(asyncHttpx.source.includes('response = await session.request("GET"'));
+  assert(asyncHttpx.source.includes("asyncio.run(main())"));
+  await compilePython("httpx-async", asyncHttpx.source);
+
+  const http3 = await generate(["curl", "--http3", "https://example.com"], {}, "python.httpx");
+  assert.equal(http3.output.support.level, "unsupported");
+  assert(http3.output.diagnostics.some((item) => item.code === "E_TARGET_UNSUPPORTED"));
+  assert(http3.source.includes("raise SystemExit"));
+  assert.equal(http3.source.includes("httpx.Client"), false);
+  await compilePython("httpx-unsupported-http3", http3.source);
 }
 
 async function testDiagnostics() {
@@ -104,6 +157,80 @@ async function testDiagnostics() {
   );
 }
 
+async function testExternalRefModes() {
+  const forbid = await generate(
+    ["curl", "--data", "@payload.txt", "https://example.com"],
+    {},
+    "python.requests",
+    { runtimeHelpers: "forbid" },
+  );
+  assert.equal(forbid.output.support.level, "unsupported");
+  assert(
+    forbid.output.diagnostics.some(
+      (item) => item.code === "E_TARGET_EXTERNAL_REF_UNSUPPORTED",
+    ),
+  );
+  assert(forbid.source.includes("raise SystemExit"));
+  assert.equal(forbid.source.includes('Path("payload.txt").read_bytes()'), false);
+  await compilePython("external-forbid", forbid.source);
+
+  const inline = await generate(
+    ["curl", "--data", "@payload.txt", "https://example.com"],
+    {},
+    "python.requests",
+    { runtimeHelpers: "inline" },
+  );
+  assert.equal(inline.output.support.level, "requires-runtime-helper");
+  assert(inline.source.includes('load_external_bytes("external-0")'));
+  assert.equal(inline.source.includes('Path("payload.txt").read_bytes()'), false);
+  await compilePython("external-inline", inline.source);
+}
+
+async function testSnapshotDir(dir, defaultTarget) {
+  const inputs = (await readdir(dir)).filter((name) => name.endsWith(".input.json")).sort();
+  assert(inputs.length > 0, `missing ${defaultTarget} generator snapshots`);
+
+  for (const inputName of inputs) {
+    const base = inputName.slice(0, -".input.json".length);
+    const payload = JSON.parse(await readFile(join(dir, inputName), "utf8"));
+    assert.equal(payload.schemaVersion, "curl-parser-generator-fixture/v1", inputName);
+    const { output, source } = await generate(
+      payload.argv,
+      {},
+      payload.target ?? defaultTarget,
+      payload.options ?? {},
+    );
+
+    assert.equal(output.support.level, payload.support, base);
+    if (payload.diagnostic) {
+      assert(
+        output.diagnostics.some((item) => item.code === payload.diagnostic),
+        `${base} diagnostic ${payload.diagnostic}`,
+      );
+    }
+    for (const snippet of payload.contains ?? []) {
+      assert(source.includes(snippet), `${base} missing ${snippet}`);
+    }
+    for (const snippet of payload.notContains ?? []) {
+      assert.equal(source.includes(snippet), false, `${base} contains ${snippet}`);
+    }
+    assert.equal(source, await readFile(join(dir, `${base}.main.py`), "utf8"), base);
+    assert.equal(/libcurl/iu.test(source), false, base);
+    if (base === "unsupported-http2") {
+      assert.equal(/http2/iu.test(source), false, base);
+    }
+    await compilePython(`snapshot-${base}`, source);
+  }
+}
+
+async function testSnapshots() {
+  await testSnapshotDir("fixtures/generator/python.requests", "python.requests");
+  await testSnapshotDir("fixtures/generator/python.httpx", "python.httpx");
+}
+
 await testGoldenShapes();
+await testHttpxFeatures();
 await testDiagnostics();
+await testExternalRefModes();
+await testSnapshots();
 console.log("python requests generator ok");

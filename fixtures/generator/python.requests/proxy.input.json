@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.requests",
+  "argv": [
+    "curl",
+    "--proxy",
+    "socks5h://proxy.example:1080",
+    "--noproxy",
+    "localhost,127.0.0.1",
+    "-L",
+    "--max-redirs",
+    "3",
+    "https://example.com"
+  ],
+  "support": "exact"
+}

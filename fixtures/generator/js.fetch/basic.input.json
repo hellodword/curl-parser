@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.fetch",
+  "argv": [
+    "curl",
+    "-H",
+    "x-test: yes",
+    "--data-raw",
+    "hello",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "new Headers([",
+    "redirect: \"manual\"",
+    "body: \"hello\""
+  ],
+  "notContains": [
+    "readFile",
+    "undici"
+  ]
+}

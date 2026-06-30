@@ -1,0 +1,12 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--cookie",
+    "cookies.txt",
+    "--cookie-jar",
+    "cookies.jar",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

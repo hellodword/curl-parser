@@ -14,9 +14,9 @@
   ],
   "generateCases": [
     {
-      "target": "c.libcurl",
+      "target": "python.httpx",
       "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
-      "file": "main.c"
+      "file": "main.py"
     },
     {
       "target": "python.requests",

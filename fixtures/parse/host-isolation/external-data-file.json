@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "data file becomes read external ref",
+      "argv": ["curl", "--data", "@payload.txt", "https://example.com"],
+      "expected": {
+        "effective": {
+          "method": { "value": "POST", "source": "body" },
+          "body": {
+            "kind": "data",
+            "value": "@payload.txt",
+            "externalRefId": "external-0"
+          }
+        },
+        "externalRefs": [
+          {
+            "id": "external-0",
+            "kind": "file",
+            "access": "read",
+            "option": "--data",
+            "value": "payload.txt",
+            "source": { "source": "argv", "argvIndex": 2, "start": 0, "end": 12 }
+          }
+        ]
+      }
+    },
+    {
+      "name": "upload file becomes read external ref",
+      "argv": ["curl", "--upload-file", "upload.bin", "https://example.com/upload"],
+      "expected": {
+        "effective": {
+          "method": { "value": "POST", "source": "body" },
+          "body": {
+            "kind": "upload-file",
+            "value": "upload.bin",
+            "externalRefId": "external-0"
+          }
+        },
+        "externalRefs": [
+          {
+            "id": "external-0",
+            "kind": "file",
+            "access": "read",
+            "option": "--upload-file",
+            "value": "upload.bin",
+            "source": { "source": "argv", "argvIndex": 2, "start": 0, "end": 10 }
+          }
+        ]
+      }
+    }
+  ]
+}

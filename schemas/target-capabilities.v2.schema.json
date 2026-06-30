@@ -1,0 +1,93 @@
+{
+  "$id": "https://schemas.curl-parser.dev/target-capabilities.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser target capabilities v2",
+  "type": "object",
+  "required": ["schemaVersion", "target", "library", "behaviors"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-target-capabilities/v2"
+    },
+    "target": {
+      "$ref": "generate-input.v2.schema.json#/$defs/target"
+    },
+    "library": {
+      "type": "object",
+      "required": ["name", "ecosystem"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ecosystem": {
+          "type": "string",
+          "enum": ["c", "python", "javascript", "go", "rust"]
+        },
+        "minimumVersion": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "behaviors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/behaviorCapability"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "capability": {
+      "type": "string",
+      "enum": [
+        "native",
+        "lossy",
+        "requires-runtime-helper",
+        "unsupported"
+      ]
+    },
+    "behaviorCapability": {
+      "type": "object",
+      "required": ["id", "capability", "message"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability": {
+          "$ref": "#/$defs/capability"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredDependency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredRuntime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredFeature": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unsafeWhen": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

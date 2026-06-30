@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-target-capabilities/v1",
+  "schemaVersion": "curl-target-capabilities/v2",
   "target": "js.fetch",
   "library": {
     "name": "fetch",
@@ -8,60 +8,112 @@
   },
   "behaviors": {
     "url": {
+      "id": "url",
       "capability": "native",
       "message": "fetch accepts request URLs directly."
     },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
     "method": {
+      "id": "method",
       "capability": "native",
       "message": "fetch supports explicit HTTP methods."
     },
     "headers": {
+      "id": "headers",
       "capability": "native",
-      "message": "fetch supports request headers."
+      "message": "fetch supports request headers.",
+      "unsafeWhen": "Duplicate header names may be coalesced by generated JavaScript header structures."
     },
     "body.raw": {
+      "id": "body.raw",
       "capability": "native",
       "message": "fetch supports raw request bodies."
     },
     "body.multipart": {
+      "id": "body.multipart",
       "capability": "native",
       "message": "fetch supports multipart bodies through FormData."
     },
     "auth.basic": {
+      "id": "auth.basic",
       "capability": "native",
       "message": "fetch can send basic auth through the Authorization header."
     },
     "cookies.inline": {
-      "capability": "native",
-      "message": "fetch can send explicit Cookie headers where the runtime allows them."
+      "id": "cookies.inline",
+      "capability": "lossy",
+      "message": "Browser fetch runtimes may reject explicit Cookie headers.",
+      "unsafeWhen": "Generated code runs in a browser or fetch runtime that forbids Cookie headers."
+    },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "unsupported",
+      "message": "fetch cannot load curl cookie jar files."
     },
     "proxy": {
+      "id": "proxy",
       "capability": "unsupported",
       "message": "fetch does not expose curl-style per-request proxy selection."
     },
     "tls.verify": {
+      "id": "tls.verify",
       "capability": "unsupported",
       "message": "fetch does not expose per-request TLS verification controls."
     },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "unsupported",
+      "message": "fetch does not expose per-request TLS CA controls."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "unsupported",
+      "message": "fetch does not expose TLS client certificate controls."
+    },
+    "network": {
+      "id": "network",
+      "capability": "unsupported",
+      "message": "fetch does not expose curl-style network binding or connection routing."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "unsupported",
+      "message": "fetch does not expose curl-style DNS resolver overrides."
+    },
     "redirects": {
+      "id": "redirects",
       "capability": "lossy",
       "message": "fetch supports redirect modes but not curl's full redirect policy."
     },
     "timeout": {
+      "id": "timeout",
       "capability": "requires-runtime-helper",
-      "message": "fetch requires AbortController or a helper for timeouts."
+      "message": "fetch requires AbortController or a helper for timeouts.",
+      "requiredRuntime": "AbortController-compatible fetch runtime."
     },
     "http.version.2": {
+      "id": "http.version.2",
       "capability": "unsupported",
       "message": "fetch does not expose HTTP/2 selection."
     },
     "http.version.3": {
+      "id": "http.version.3",
       "capability": "unsupported",
       "message": "fetch does not expose HTTP/3 selection."
     },
-    "external-ref": {
+    "debug": {
+      "id": "debug",
       "capability": "unsupported",
-      "message": "External input referenced by the curl command cannot be generated."
+      "message": "fetch output cannot reproduce curl verbose or trace wire dumps."
+    },
+    "external-ref": {
+      "id": "external-ref",
+      "capability": "unsupported",
+      "message": "Browser fetch cannot access local external references."
     }
   }
 }

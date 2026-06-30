@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { generateCode, parseCurl } from "../../packages/node/dist/node.js";
 
 const targets = [
-  "c.libcurl",
   "python.requests",
+  "python.httpx",
   "js.fetch",
   "js.undici",
+  "js.axios",
   "go.net_http",
   "rust.reqwest",
 ];

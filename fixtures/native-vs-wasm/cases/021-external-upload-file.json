@@ -1,0 +1,10 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--upload-file",
+    "upload.bin",
+    "https://example.com/upload"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

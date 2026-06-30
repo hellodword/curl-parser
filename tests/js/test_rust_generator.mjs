@@ -74,6 +74,7 @@ async function testGeneratedProject() {
   assert(blocking.includes("reqwest::blocking::Client::builder()"));
   assert(blocking.includes('request = request.header("x-test", "yes")'));
   assert(blocking.includes('request = request.body("hello")'));
+  assert(blocking.includes("reqwest::redirect::Policy::none()"));
   assert(asyncMain.includes("#[tokio::main]"));
   assert(asyncMain.includes("request.send().await?"));
   await validateCargoMetadata("post", output);
@@ -134,9 +135,106 @@ async function testFeaturesAndFidelity() {
   await validateCargoMetadata("unsupported-ftp", ftp);
 
   const http3 = await generate(["curl", "--http3", "https://example.com"]);
+  assert.notEqual(http3.support.level, "exact");
   assert(http3.support.items.some((item) => item.behavior === "http.version.3"));
+}
+
+async function testReqwestSpecificControls() {
+  const http2 = await generate(["curl", "--http2-prior-knowledge", "https://example.com"]);
+  const http2Manifest = file(http2, "Cargo.toml").content;
+  const http2Blocking = file(http2, "src/main.rs").content;
+  assert.equal(http2.support.level, "exact");
+  assert(http2Manifest.includes('"http2"'));
+  assert(http2Blocking.includes("builder = builder.http2_prior_knowledge();"));
+  await validateCargoMetadata("http2-prior-knowledge", http2);
+
+  const timeoutRedirect = await generate([
+    "curl",
+    "-L",
+    "--max-redirs",
+    "3",
+    "--connect-timeout",
+    "2",
+    "--max-time",
+    "5",
+    "https://example.com",
+  ]);
+  const timeoutRedirectBlocking = file(timeoutRedirect, "src/main.rs").content;
+  assert(timeoutRedirectBlocking.includes("reqwest::redirect::Policy::limited(3)"));
+  assert(timeoutRedirectBlocking.includes("builder = builder.timeout(std::time::Duration::from_millis(5000));"));
+  assert(timeoutRedirectBlocking.includes("builder = builder.connect_timeout(std::time::Duration::from_millis(2000));"));
+  await validateCargoMetadata("timeout-redirect", timeoutRedirect);
+
+  const proxy = await generate([
+    "curl",
+    "--proxy",
+    "socks5h://proxy.example:1080",
+    "--noproxy",
+    "localhost,127.0.0.1",
+    "https://example.com",
+  ]);
+  const proxyManifest = file(proxy, "Cargo.toml").content;
+  const proxyBlocking = file(proxy, "src/main.rs").content;
+  assert(proxyManifest.includes('"socks"'));
+  assert(proxyBlocking.includes('reqwest::Proxy::all("socks5h://proxy.example:1080")?'));
+  assert(proxyBlocking.includes('reqwest::NoProxy::from_string("localhost,127.0.0.1")'));
+  await validateCargoMetadata("proxy-socks-noproxy", proxy);
+
+  const tls = await generate([
+    "curl",
+    "-k",
+    "--cacert",
+    "ca.pem",
+    "--cert",
+    "client.pem",
+    "--key",
+    "client.key",
+    "https://example.com",
+  ]);
+  const tlsBlocking = file(tls, "src/main.rs").content;
+  const tlsHelper = file(tls, "src/helper.rs").content;
+  assert.equal(tls.support.level, "requires-runtime-helper");
+  assert(tls.diagnostics.some((item) => item.code === "W_TARGET_UNSAFE"));
+  assert(tlsBlocking.startsWith("mod helper;"));
+  assert(tlsBlocking.includes("danger_accept_invalid_certs(true); // curl -k: unsafe outside controlled replay"));
+  assert(tlsBlocking.includes('helper::load_root_certificates("ca.pem")'));
+  assert(tlsBlocking.includes('helper::load_identity("client.pem", Some("client.key"))'));
+  assert(tlsHelper.includes("reqwest::Certificate::from_pem_bundle"));
+  assert(tlsHelper.includes("reqwest::Identity::from_pem"));
+  await validateCargoMetadata("tls-helper", tls);
+
+  const connector = await generate([
+    "curl",
+    "--resolve",
+    "example.com:443:203.0.113.10",
+    "--interface",
+    "eth0",
+    "--local-port",
+    "4000-4002",
+    "--connect-to",
+    "example.com:443:backend.example:8443",
+    "https://example.com",
+  ]);
+  const connectorBlocking = file(connector, "src/main.rs").content;
+  const connectorAsync = file(connector, "src/async_main.rs").content;
+  const connectorHelper = file(connector, "src/helper.rs").content;
+  assert.equal(connector.support.level, "requires-runtime-helper");
+  assert(connector.support.items.some((item) => item.behavior === "dns" && item.level === "requires-runtime-helper"));
+  assert(connector.support.items.some((item) => item.behavior === "network" && item.level === "requires-runtime-helper"));
+  assert(connectorBlocking.includes("helper::configure_blocking_connector"));
+  assert(connectorAsync.includes("helper::configure_async_connector"));
+  assert(connectorHelper.includes("TODO: provide reqwest connector/resolver"));
+  await validateCargoMetadata("connector-helper", connector);
+
+  const debug = await generate(["curl", "-v", "https://example.com"]);
+  const debugBlocking = file(debug, "src/main.rs").content;
+  assert.equal(debug.support.level, "lossy");
+  assert(debug.diagnostics.some((item) => item.code === "W_TARGET_LOSSY"));
+  assert(debugBlocking.includes("builder = builder.connection_verbose(true);"));
+  await validateCargoMetadata("debug", debug);
 }
 
 await testGeneratedProject();
 await testFeaturesAndFidelity();
+await testReqwestSpecificControls();
 console.log("rust generator ok");

@@ -1,4 +1,4 @@
-import { createParserFromWasm } from "./parser.js";
+import { createParserFromWasm, generateCodeFromIr } from "./parser.js";
 import type {
   BrowserCreateParserOptions,
   CurlParser,
@@ -36,18 +36,14 @@ export async function parseCurl(
 
 export async function generateCode(
   input: GenerateCodeInput,
-  options: BrowserCreateParserOptions & GenerateCodeOptions,
+  options: GenerateCodeOptions = {},
 ): Promise<GenerateOutput> {
-  const parser = await createParser(options);
-  try {
-    return await parser.generateCode(input, options);
-  } finally {
-    parser.dispose();
-  }
+  return generateCodeFromIr(input, options);
 }
 
 export {
   createParseInputFromArgv,
+  generateCodeFromIr,
   listSchemaExports,
   listTargets,
   parseShellCommand,
@@ -58,21 +54,37 @@ export { createBrowserWasiImports } from "./browser_wasi.js";
 export { CurlParserError, CurlParserWasm } from "./wasm.js";
 export type {
   BrowserCreateParserOptions,
+  CapabilityLevel,
   CurlIr,
   CurlIrTransfer,
   CurlIrTransferGroup,
   CurlIrUrlResolution,
   CurlParser,
   Diagnostic,
+  DiagnosticSeverity,
+  ExternalRef,
+  ExternalRefKind,
+  GeneratedFile,
   GenerateCodeInput,
   GenerateCodeOptions,
   GenerateInput,
+  GenerateInputOptions,
   GenerateOutput,
+  JsonObject,
+  JsonPrimitive,
+  JsonValue,
+  NodeCreateParserOptions,
   ParseCurlInput,
   ParseCurlOptions,
   ParseInput,
   ParseOutput,
+  RequestPlan,
   ShellDialect,
   SourceSpan,
+  SupportItem,
+  SupportItemLevel,
+  SupportLevel,
+  SupportReport,
   Target,
+  WasmCreateOptions,
 } from "./types.js";

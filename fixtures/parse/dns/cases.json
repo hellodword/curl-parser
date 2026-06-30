@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "dns interface doh and resolve",
+      "argv": [
+        "curl",
+        "--dns-interface",
+        "dns0",
+        "--dns-ipv4-addr",
+        "192.0.2.10",
+        "--doh-url",
+        "https://dns.example/dns-query",
+        "--resolve",
+        "example.com:443:203.0.113.10",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "dns": {
+            "interface": "dns0",
+            "interfaceRefId": "external-0",
+            "ipv4Address": "192.0.2.10",
+            "dohUrl": "https://dns.example/dns-query",
+            "resolve": ["example.com:443:203.0.113.10"]
+          }
+        },
+        "externalRefs": [
+          { "id": "external-0", "kind": "dns-interface", "value": "dns0" }
+        ]
+      }
+    }
+  ]
+}

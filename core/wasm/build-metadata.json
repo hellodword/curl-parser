@@ -1,7 +1,7 @@
 {
   "schemaVersion": "curl-wasm-build-metadata/v1",
   "artifact": "dist/curl_parser.wasm",
-  "abiVersion": 1,
+  "abiVersion": 2,
   "target": "wasm32-wasi",
   "exports": [
     "memory",
@@ -11,7 +11,6 @@
     "curlparse_buf_free",
     "curlparse_engine_new",
     "curlparse_engine_free",
-    "curlparse_parse_json",
-    "curlparse_generate_json"
+    "curlparse_parse_json"
   ]
 }

@@ -5,5 +5,5 @@
     "--header=A: B",
     "https://example.com"
   ],
-  "schemaVersion": "curl-parse-input/v1"
+  "schemaVersion": "curl-parse-input/v2"
 }

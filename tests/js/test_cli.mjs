@@ -15,7 +15,7 @@ async function runCli(args, options = {}) {
 async function testParseJson() {
   const { stdout } = await runCli(["parse", "--json", "--", "curl", "https://example.com"]);
   const output = JSON.parse(stdout);
-  assert.equal(output.schemaVersion, "curl-parse-output/v1");
+  assert.equal(output.schemaVersion, "curl-parse-output/v2");
   assert.equal(output.ok, true);
 }
 
@@ -63,7 +63,7 @@ async function testTargetsAndSchema() {
   assert(targets.some((item) => item.target === "python.requests" && item.generator === true));
 
   const schemas = JSON.parse((await runCli(["schema"])).stdout);
-  assert(schemas.schemas.includes("curlIrV1"));
+  assert(schemas.schemas.includes("curlIrV2"));
 
   const direct = JSON.parse((await runCli(["targets"])).stdout);
   assert(direct.some((item) => item.target === "js.fetch"));

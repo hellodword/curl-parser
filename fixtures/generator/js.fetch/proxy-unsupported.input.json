@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.fetch",
+  "argv": [
+    "curl",
+    "--proxy",
+    "http://proxy:8080",
+    "https://example.com"
+  ],
+  "support": "unsupported",
+  "diagnostic": "E_TARGET_UNSUPPORTED",
+  "contains": [
+    "throw new Error(\"Target cannot preserve curl-style proxy selection\")"
+  ],
+  "notContains": [
+    "fetch("
+  ]
+}

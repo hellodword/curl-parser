@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-target-capabilities/v1",
+  "schemaVersion": "curl-target-capabilities/v2",
   "target": "rust.reqwest",
   "library": {
     "name": "reqwest",
@@ -9,60 +9,113 @@
   },
   "behaviors": {
     "url": {
+      "id": "url",
       "capability": "native",
       "message": "reqwest accepts request URLs directly."
     },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
     "method": {
+      "id": "method",
       "capability": "native",
       "message": "reqwest supports explicit HTTP methods."
     },
     "headers": {
+      "id": "headers",
       "capability": "native",
       "message": "reqwest supports request headers."
     },
     "body.raw": {
+      "id": "body.raw",
       "capability": "native",
       "message": "reqwest supports raw request bodies."
     },
     "body.multipart": {
+      "id": "body.multipart",
       "capability": "native",
       "message": "reqwest supports multipart request bodies."
     },
     "auth.basic": {
+      "id": "auth.basic",
       "capability": "native",
       "message": "reqwest supports basic authentication."
     },
     "cookies.inline": {
+      "id": "cookies.inline",
       "capability": "native",
       "message": "reqwest can send explicit Cookie headers."
     },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "unsupported",
+      "message": "reqwest target does not load curl cookie jar files."
+    },
     "proxy": {
+      "id": "proxy",
       "capability": "native",
       "message": "reqwest supports proxy configuration."
     },
     "tls.verify": {
+      "id": "tls.verify",
       "capability": "native",
       "message": "reqwest supports TLS verification settings."
     },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "reqwest can add root certificates from PEM files."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "reqwest can configure client identities from PEM files."
+    },
+    "network": {
+      "id": "network",
+      "capability": "requires-runtime-helper",
+      "message": "reqwest requires custom connector or resolver wiring to preserve curl network binding or connection routing.",
+      "requiredRuntime": "Caller-provided reqwest connector/resolver helper."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "requires-runtime-helper",
+      "message": "reqwest requires custom resolver wiring to preserve curl DNS resolver overrides.",
+      "requiredRuntime": "Caller-provided reqwest connector/resolver helper."
+    },
     "redirects": {
+      "id": "redirects",
       "capability": "native",
       "message": "reqwest supports redirect policies."
     },
     "timeout": {
+      "id": "timeout",
       "capability": "native",
       "message": "reqwest supports request and connect timeouts."
     },
     "http.version.2": {
+      "id": "http.version.2",
       "capability": "native",
-      "message": "reqwest supports HTTP/2 with features and client configuration."
+      "message": "reqwest supports HTTP/2 with features and client configuration.",
+      "requiredFeature": "reqwest HTTP/2 feature support."
     },
     "http.version.3": {
+      "id": "http.version.3",
       "capability": "unsupported",
       "message": "reqwest HTTP/3 support is not treated as a stable native target capability."
     },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "reqwest output cannot reproduce curl verbose or trace wire dumps."
+    },
     "external-ref": {
-      "capability": "unsupported",
-      "message": "External input referenced by the curl command cannot be generated."
+      "id": "external-ref",
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Filesystem or stdin access to referenced inputs."
     }
   }
 }

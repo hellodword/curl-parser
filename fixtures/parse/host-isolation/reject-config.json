@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "explicit config file is rejected before host read",
+      "argv": ["curl", "--config", "secret.curlrc"],
+      "expected": {
+        "ok": false,
+        "errors": [
+          {
+            "code": "E_PARSE_HOST_DEPENDENCY_UNSUPPORTED",
+            "option": "--config",
+            "detail": "option requires host-dependent curl CLI behavior",
+            "warning": false
+          }
+        ],
+        "externalRefs": [],
+        "noTransfers": true
+      }
+    },
+    {
+      "name": "default curlrc is ignored",
+      "argv": ["curl", "https://example.com"],
+      "expected": {
+        "ok": true,
+        "effective": {
+          "method": { "value": "GET", "source": "default" }
+        },
+        "externalRefs": []
+      }
+    },
+    {
+      "name": "url file expansion is rejected before host read",
+      "argv": ["curl", "--url", "@urls.txt"],
+      "expected": {
+        "ok": false,
+        "errors": [
+          {
+            "code": "E_HOST_URL_FILE_UNSUPPORTED",
+            "option": "--url",
+            "detail": "--url @file changes the request set and is not parsed",
+            "warning": false
+          }
+        ],
+        "externalRefs": [],
+        "noTransfers": true
+      }
+    },
+    {
+      "name": "libcurl code output is rejected before host write",
+      "argv": ["curl", "--libcurl", "out.c", "https://example.com"],
+      "expected": {
+        "ok": false,
+        "errors": [
+          {
+            "code": "E_PARSE_HOST_DEPENDENCY_UNSUPPORTED",
+            "option": "--libcurl",
+            "detail": "option requires host-dependent curl CLI behavior",
+            "warning": false
+          }
+        ],
+        "effective": {
+          "method": { "value": "GET", "source": "default" }
+        },
+        "externalRefs": []
+      }
+    }
+  ]
+}

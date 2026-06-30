@@ -1,0 +1,10 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--data",
+    "@payload.txt",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

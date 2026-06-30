@@ -39,12 +39,15 @@ const result = await parseCurl(["curl", "--data-raw", "hello", "https://example.
 Generate code:
 
 ```js
-import { generateCode, parseCurl } from "@hellodword/curl-parser";
+import { generateCodeFromIr, parseCurl } from "@hellodword/curl-parser";
 
 const parsed = await parseCurl("curl --data-raw hello https://example.com");
-const output = await generateCode(parsed, { target: "js.fetch" });
+const output = generateCodeFromIr(parsed.ir, { target: "js.fetch" });
 console.log(output.files[0].content);
 ```
+
+`generateCodeFromIr()` is pure TypeScript and does not instantiate Wasm. The
+async `generateCode()` helper accepts the same IR-shaped inputs for compatibility.
 
 CLI:
 

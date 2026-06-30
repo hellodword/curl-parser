@@ -1,0 +1,64 @@
+{
+  "$id": "https://schemas.curl-parser.dev/parse-input.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser parse input v2",
+  "type": "object",
+  "required": ["schemaVersion", "inputMode"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-parse-input/v2"
+    },
+    "inputMode": {
+      "type": "string",
+      "enum": ["argv", "shell"]
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "argvSpans": {
+      "type": "array",
+      "items": {
+        "$ref": "diagnostics.v2.schema.json#/$defs/sourceSpan"
+      }
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shellDialect": {
+      "type": "string",
+      "enum": ["bash", "zsh", "posix-sh", "powershell", "cmd", "fish"]
+    },
+    "parseMode": {
+      "type": "string",
+      "enum": ["strict", "diagnostic"]
+    },
+    "runtimeProfile": {
+      "$ref": "runtime-profile.v2.schema.json"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "inputMode": {
+          "const": "argv"
+        }
+      },
+      "required": ["argv"]
+    },
+    {
+      "properties": {
+        "inputMode": {
+          "const": "shell"
+        }
+      },
+      "required": ["command", "shellDialect"]
+    }
+  ],
+  "additionalProperties": false
+}

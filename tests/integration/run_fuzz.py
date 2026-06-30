@@ -299,7 +299,7 @@ def generate_case(
         argv.append(random_url(rng, rng.choice(["http", "https", "sftp", "madeup"])))
 
     input_obj = {
-        "schemaVersion": "curl-parse-input/v1",
+        "schemaVersion": "curl-parse-input/v2",
         "inputMode": "argv",
         "argv": argv[:200],
         "parseMode": rng.choice(["strict", "diagnostic"]),

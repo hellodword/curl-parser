@@ -21,7 +21,7 @@
       "disabledOptions": [],
       "defines": []
     },
-    "schemaVersion": "curl-runtime-profile/v1"
+    "schemaVersion": "curl-runtime-profile/v2"
   },
-  "schemaVersion": "curl-parse-input/v1"
+  "schemaVersion": "curl-parse-input/v2"
 }

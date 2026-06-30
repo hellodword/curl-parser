@@ -1,0 +1,103 @@
+{
+  "$id": "https://schemas.curl-parser.dev/runtime-profile.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser runtime profile v2",
+  "type": "object",
+  "required": ["schemaVersion", "curlVersion", "protocols", "features"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-runtime-profile/v2"
+    },
+    "curlVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+"
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9+.-]*$"
+      },
+      "uniqueItems": true
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "compile": {
+      "type": "object",
+      "required": ["availableOptions", "disabledOptions", "defines"],
+      "properties": {
+        "availableOptions": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "disabledOptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "defines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "optionCatalog": {
+      "type": "object",
+      "required": ["curlVersion", "source", "sha256"],
+      "properties": {
+        "curlVersion": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sslBackend": {
+      "type": ["string", "null"]
+    },
+    "http3Backend": {
+      "type": ["string", "null"]
+    },
+    "resolverBackend": {
+      "type": ["string", "null"]
+    },
+    "defaults": {
+      "type": "object",
+      "required": ["userAgent", "httpVersion", "followRedirects"],
+      "properties": {
+        "userAgent": {
+          "type": ["string", "null"]
+        },
+        "httpVersion": {
+          "type": ["integer", "null"]
+        },
+        "followRedirects": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

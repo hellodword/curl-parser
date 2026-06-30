@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.fetch",
+  "argv": [
+    "curl",
+    "--data-binary",
+    "@payload.txt",
+    "https://example.com"
+  ],
+  "options": {
+    "runtimeHelpers": "allow"
+  },
+  "support": "requires-runtime-helper",
+  "contains": [
+    "async function loadExternalBytes(refId)",
+    "body: await loadExternalBytes(\"external-0\")"
+  ],
+  "notContains": [
+    "readFile"
+  ]
+}

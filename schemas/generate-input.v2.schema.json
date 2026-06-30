@@ -1,0 +1,55 @@
+{
+  "$id": "https://schemas.curl-parser.dev/generate-input.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser generate input v2",
+  "type": "object",
+  "required": ["schemaVersion", "target", "ir"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-generate-input/v2"
+    },
+    "target": {
+      "$ref": "#/$defs/target"
+    },
+    "ir": {
+      "$ref": "curl-ir.v2.schema.json"
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "secretMode": {
+          "type": "string",
+          "enum": ["redact", "env-ref", "preserve"]
+        },
+        "runtimeHelpers": {
+          "type": "string",
+          "enum": ["allow", "inline", "forbid"]
+        },
+        "style": {
+          "type": "string",
+          "enum": ["sync", "async"]
+        },
+        "format": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "target": {
+      "type": "string",
+      "enum": [
+        "python.requests",
+        "python.httpx",
+        "js.fetch",
+        "js.undici",
+        "js.axios",
+        "go.net_http",
+        "rust.reqwest"
+      ]
+    }
+  }
+}

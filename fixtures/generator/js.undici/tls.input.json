@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.undici",
+  "argv": [
+    "curl",
+    "--proxy",
+    "https://proxy.example:8443",
+    "--proxy-insecure",
+    "--proxy-cacert",
+    "proxy-ca.pem",
+    "--proxy-cert",
+    "proxy-client.pem",
+    "--proxy-key",
+    "proxy-client.key",
+    "-k",
+    "--cacert",
+    "ca.pem",
+    "--cert",
+    "client.pem",
+    "--key",
+    "client.key",
+    "https://example.com"
+  ],
+  "support": "requires-runtime-helper",
+  "contains": [
+    "requestTls",
+    "proxyTls",
+    "ca: await readFile(\"ca.pem\")",
+    "ca: await readFile(\"proxy-ca.pem\")"
+  ]
+}

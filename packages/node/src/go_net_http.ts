@@ -1,7 +1,5 @@
 import type {
   CurlIr,
-  Diagnostic,
-  SupportItem,
   GenerateInput,
   GenerateOutput,
   GeneratedFile,
@@ -23,6 +21,19 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function hasObjectFields(value: unknown): value is JsonRecord {
+  const record = asRecord(value);
+  return Boolean(record && Object.keys(record).length > 0);
+}
+
+function httpVersionValue(value: unknown): string | undefined {
+  return asString(value) ?? asString(asRecord(value)?.value);
+}
+
 function externalRefById(ir: CurlIr, id: string | undefined): JsonRecord | undefined {
   if (!id) {
     return undefined;
@@ -30,6 +41,10 @@ function externalRefById(ir: CurlIr, id: string | undefined): JsonRecord | undef
   return ir.externalRefs
     .map((value) => asRecord(value))
     .find((value) => value?.id === id);
+}
+
+function refValue(ir: CurlIr, id: unknown): string | undefined {
+  return asString(externalRefById(ir, asString(id))?.value);
 }
 
 function bodyExternalRef(ir: CurlIr, body: JsonRecord | undefined): JsonRecord | undefined {
@@ -48,29 +63,6 @@ function transferRecords(ir: CurlIr): JsonRecord[] {
     }
   }
   return transfers;
-}
-
-function argvStrings(ir: CurlIr): string[] {
-  return asArray(ir.command.argv).filter((value): value is string => typeof value === "string");
-}
-
-function flagValue(argv: string[], ...flags: string[]): string | undefined {
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
-    for (const flag of flags) {
-      if (value === flag) {
-        return argv[index + 1];
-      }
-      if (value.startsWith(`${flag}=`)) {
-        return value.slice(flag.length + 1);
-      }
-    }
-  }
-  return undefined;
-}
-
-function hasFlag(argv: string[], ...flags: string[]): boolean {
-  return argv.some((value) => flags.includes(value));
 }
 
 function goString(value: string): string {
@@ -101,9 +93,21 @@ function inlineCookieHeader(effective: JsonRecord): string | undefined {
     .join("; ") || undefined;
 }
 
-function cookieJarPath(argv: string[]): string | undefined {
-  const value = flagValue(argv, "-b", "--cookie", "--cookie-jar");
-  return value && !value.includes("=") ? value : undefined;
+function cookieJarPath(ir: CurlIr): string | undefined {
+  for (const transfer of transferRecords(ir)) {
+    const effective = asRecord(transfer.effective) ?? {};
+    for (const cookie of asArray(effective.cookies)) {
+      const ref = externalRefById(ir, asString(asRecord(cookie)?.externalRefId));
+      const value = asString(ref?.value);
+      if (value && !value.includes("=")) {
+        return value;
+      }
+    }
+  }
+  const jar = ir.externalRefs
+    .map((value) => asRecord(value))
+    .find((ref) => ref?.kind === "cookie-jar" && typeof ref.value === "string");
+  return asString(jar?.value);
 }
 
 function splitFormValue(value: string): [string, string] {
@@ -123,43 +127,61 @@ function jsonBodyFromBody(bodyKind: string | undefined, bodyValue: string): stri
   return bodyKind === "json" ? bodyValue : undefined;
 }
 
-function secondsToDuration(value: string | undefined): string | undefined {
-  if (!value) {
+function millisecondsToDuration(value: number | undefined): string | undefined {
+  if (value === undefined) {
     return undefined;
   }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  const rounded = Math.round(value);
+  if (rounded < 0) {
     return undefined;
   }
-  return `${Math.round(parsed * 1000)} * time.Millisecond`;
+  return `${rounded} * time.Millisecond`;
 }
 
-const levelRank: Record<string, number> = {
-  exact: 0,
-  lossy: 1,
-  "requires-runtime-helper": 2,
-  unsupported: 3,
-};
-
-function aggregateLevel(current: string, next: string): string {
-  return (levelRank[next] ?? 0) > (levelRank[current] ?? 0) ? next : current;
+function maxTimeout(effective: JsonRecord): string | undefined {
+  return millisecondsToDuration(asNumber(asRecord(effective.timeouts)?.maxTimeMs));
 }
 
-function withSupportItem(output: GenerateOutput, item: SupportItem): GenerateOutput {
-  return {
-    ...output,
-    support: {
-      level: aggregateLevel(output.support.level, item.level ?? "exact"),
-      items: [...output.support.items, item],
-    },
-  };
+function connectTimeout(effective: JsonRecord): string | undefined {
+  return millisecondsToDuration(asNumber(asRecord(effective.timeouts)?.connectTimeoutMs));
 }
 
-function withDiagnostic(output: GenerateOutput, diagnostic: Diagnostic): GenerateOutput {
-  return {
-    ...output,
-    diagnostics: [...output.diagnostics, diagnostic],
-  };
+function redirectLimit(effective: JsonRecord): number {
+  const redirects = asRecord(effective.redirects);
+  if (redirects?.follow === true) {
+    return typeof redirects.max === "number" ? redirects.max : 50;
+  }
+  return 0;
+}
+
+function tlsCaPath(ir: CurlIr, tls: JsonRecord | undefined): string | undefined {
+  return refValue(ir, tls?.caFileRefId);
+}
+
+function tlsClientCertPath(ir: CurlIr, tls: JsonRecord | undefined): string | undefined {
+  return refValue(ir, tls?.clientCertRefId) ?? asString(tls?.clientCert);
+}
+
+function tlsClientKeyPath(ir: CurlIr, tls: JsonRecord | undefined): string | undefined {
+  return refValue(ir, tls?.clientKeyRefId);
+}
+
+function needsTlsConfig(ir: CurlIr, tls: JsonRecord | undefined): boolean {
+  return Boolean(tls) &&
+    (tls?.verify === false ||
+      Boolean(tlsCaPath(ir, tls)) ||
+      Boolean(tlsClientCertPath(ir, tls)));
+}
+
+function needsDialHelper(effective: JsonRecord): boolean {
+  return hasObjectFields(effective.network) || hasObjectFields(effective.dns);
+}
+
+function curlDialConfig(effective: JsonRecord): string {
+  return JSON.stringify({
+    dns: effective.dns ?? {},
+    network: effective.network ?? {},
+  });
 }
 
 function renderImports(imports: Set<string>): string {
@@ -169,7 +191,6 @@ function renderImports(imports: Set<string>): string {
 function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined, imports: Set<string>): string[] {
   const ir = input.ir;
   const effective = asRecord(transfer?.effective) ?? {};
-  const argv = argvStrings(ir);
   const body = asRecord(effective.body);
   const bodyKind = asString(body?.kind);
   const bodyValue = asString(body?.value) ?? "";
@@ -180,16 +201,30 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
   const method = jsonBody && methodValue === "GET" ? "POST" : methodValue;
   const proxy = asString(asRecord(effective.proxy)?.url);
   const tls = asRecord(effective.tls);
-  const httpVersion = asString(effective.httpVersion);
+  const httpVersion = httpVersionValue(effective.httpVersion);
   const cookie = inlineCookieHeader(effective);
-  const jarPath = cookieJarPath(argv);
+  const jarPath = cookieJarPath(ir);
   const auth = asString(asRecord(effective.auth)?.value);
-  const timeout = secondsToDuration(flagValue(argv, "--max-time", "-m"));
+  const timeout = maxTimeout(effective);
+  const dialTimeout = connectTimeout(effective);
+  const redirects = redirectLimit(effective);
+  const caPath = tlsCaPath(ir, tls);
+  const certPath = tlsClientCertPath(ir, tls);
+  const keyPath = tlsClientKeyPath(ir, tls);
+  const hasTlsConfig = needsTlsConfig(ir, tls);
+  const hasDialHelper = needsDialHelper(effective);
+  const hasDebug = hasObjectFields(effective.debug);
+  const hasCustomTransport = Boolean(proxy) ||
+    hasTlsConfig ||
+    httpVersion === "2" ||
+    Boolean(dialTimeout) ||
+    hasDialHelper;
   const setup: string[] = ["\tvar body io.Reader"];
   const cleanup: string[] = [];
   const requestSetup: string[] = [];
   const clientSetup: string[] = ["\tclient := &http.Client{}"];
   const transportSetup: string[] = [];
+  const responseSetup: string[] = [];
 
   if (externalBody && (bodyKind === "form" || bodyKind === "form-string")) {
     const [name, value] = splitFormValue(bodyValue);
@@ -265,6 +300,28 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
     setup.push(`\tbody = strings.NewReader(${goString(bodyValue)})`);
   }
 
+  if (hasTlsConfig) {
+    imports.add("crypto/tls");
+    setup.push("\ttlsConfig := &tls.Config{}");
+    if (tls?.verify === false) {
+      setup.push("\ttlsConfig.InsecureSkipVerify = true // curl -k");
+    }
+    if (caPath) {
+      setup.push(`\trootCAs, err := loadCAPool(${goString(caPath)})`);
+      setup.push("\tif err != nil {");
+      setup.push("\t\treturn err");
+      setup.push("\t}");
+      setup.push("\ttlsConfig.RootCAs = rootCAs");
+    }
+    if (certPath) {
+      setup.push(`\tclientCert, err := loadClientCertificate(${goString(certPath)}, ${goString(keyPath ?? "")})`);
+      setup.push("\tif err != nil {");
+      setup.push("\t\treturn err");
+      setup.push("\t}");
+      setup.push("\ttlsConfig.Certificates = []tls.Certificate{clientCert}");
+    }
+  }
+
   setup.push(
     `\treq, err := http.NewRequestWithContext(ctx, ${goString(method)}, ${goString(asString(transfer?.url) ?? "")}, body)`,
     "\tif err != nil {",
@@ -301,7 +358,7 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
   if (auth) {
     requestSetup.push('\treq.Header.Set("Authorization", "Basic REDACTED")');
   }
-  if (proxy || tls?.verify === false || httpVersion === "2") {
+  if (hasCustomTransport) {
     transportSetup.push("\ttransport := &http.Transport{}");
     if (proxy) {
       imports.add("net/url");
@@ -311,17 +368,34 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
       transportSetup.push("\t}");
       transportSetup.push("\ttransport.Proxy = http.ProxyURL(proxyURL)");
     }
-    if (tls?.verify === false) {
-      imports.add("crypto/tls");
-      transportSetup.push("\ttransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // curl -k");
+    if (hasTlsConfig) {
+      transportSetup.push("\ttransport.TLSClientConfig = tlsConfig");
     }
-    if (httpVersion === "2" || hasFlag(argv, "--http2", "--http2-prior-knowledge")) {
+    if (httpVersion === "2" || httpVersion === undefined) {
       transportSetup.push("\ttransport.ForceAttemptHTTP2 = true");
+    }
+    if (dialTimeout && !hasDialHelper) {
+      imports.add("net");
+      imports.add("time");
+      transportSetup.push(`\tdialer := &net.Dialer{Timeout: ${dialTimeout}}`);
+      transportSetup.push("\ttransport.DialContext = dialer.DialContext");
+    }
+    if (hasDialHelper) {
+      transportSetup.push(`\ttransport.DialContext = createCurlDialContext(${goString(curlDialConfig(effective))})`);
     }
     transportSetup.push("\tclient.Transport = transport");
   }
-  if (hasFlag(argv, "-L", "--location", "--location-trusted")) {
-    clientSetup.push("\tclient.CheckRedirect = nil");
+  if (redirects === 0) {
+    clientSetup.push("\tclient.CheckRedirect = func(req *http.Request, via []*http.Request) error {");
+    clientSetup.push("\t\treturn http.ErrUseLastResponse");
+    clientSetup.push("\t}");
+  } else {
+    clientSetup.push("\tclient.CheckRedirect = func(req *http.Request, via []*http.Request) error {");
+    clientSetup.push(`\t\tif len(via) >= ${redirects} {`);
+    clientSetup.push("\t\t\treturn http.ErrUseLastResponse");
+    clientSetup.push("\t\t}");
+    clientSetup.push("\t\treturn nil");
+    clientSetup.push("\t}");
   }
   if (timeout) {
     imports.add("time");
@@ -333,6 +407,15 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
     clientSetup.push("\t\treturn err");
     clientSetup.push("\t}");
     clientSetup.push("\tclient.Jar = jar");
+  }
+  if (hasDebug) {
+    imports.add("net/http/httputil");
+    transportSetup.push("\tif dump, err := httputil.DumpRequestOut(req, false); err == nil {");
+    transportSetup.push("\t\t_, _ = os.Stderr.Write(dump)");
+    transportSetup.push("\t}");
+    responseSetup.push("\tif dump, err := httputil.DumpResponse(resp, false); err == nil {");
+    responseSetup.push("\t\t_, _ = os.Stderr.Write(dump)");
+    responseSetup.push("\t}");
   }
 
   return [
@@ -347,6 +430,7 @@ function renderGoTransfer(input: GenerateInput, transfer: JsonRecord | undefined
     "\t\treturn err",
     "\t}",
     "\tdefer resp.Body.Close()",
+    ...responseSetup,
     "\tif resp.StatusCode < 200 || resp.StatusCode >= 300 {",
     '\t\treturn fmt.Errorf("HTTP %d", resp.StatusCode)',
     "\t}",
@@ -388,47 +472,98 @@ function renderGoMain(input: GenerateInput): string {
   return lines.join("\n").replace(/\t/gu, "    ");
 }
 
-function renderGoHelper(): string {
+function needsCookieJarHelper(input: GenerateInput): boolean {
+  return Boolean(cookieJarPath(input.ir));
+}
+
+function needsTlsHelper(input: GenerateInput): boolean {
+  return transferRecords(input.ir).some((transfer) => {
+    const tls = asRecord(asRecord(transfer.effective)?.tls);
+    return Boolean(tlsCaPath(input.ir, tls)) || Boolean(tlsClientCertPath(input.ir, tls));
+  });
+}
+
+function needsDialContextHelper(input: GenerateInput): boolean {
+  return transferRecords(input.ir).some((transfer) =>
+    needsDialHelper(asRecord(transfer.effective) ?? {}),
+  );
+}
+
+function renderGoHelper(input: GenerateInput): string {
+  const imports = new Set<string>();
+  const blocks: string[] = [];
+
+  if (needsCookieJarHelper(input)) {
+    imports.add("net/http/cookiejar");
+    blocks.push(
+      "func loadCookieJar(path string) (*cookiejar.Jar, error) {",
+      "\t_ = path",
+      "\treturn cookiejar.New(nil)",
+      "}",
+      "",
+    );
+  }
+
+  if (needsTlsHelper(input)) {
+    imports.add("crypto/tls");
+    imports.add("crypto/x509");
+    imports.add("fmt");
+    imports.add("os");
+    blocks.push(
+      "func loadCAPool(path string) (*x509.CertPool, error) {",
+      "\trootCAs, err := x509.SystemCertPool()",
+      "\tif err != nil {",
+      "\t\trootCAs = x509.NewCertPool()",
+      "\t}",
+      "\tpemBytes, err := os.ReadFile(path)",
+      "\tif err != nil {",
+      "\t\treturn nil, err",
+      "\t}",
+      "\tif ok := rootCAs.AppendCertsFromPEM(pemBytes); !ok {",
+      "\t\treturn nil, fmt.Errorf(\"failed to append CA certificates from %s\", path)",
+      "\t}",
+      "\treturn rootCAs, nil",
+      "}",
+      "",
+      "func loadClientCertificate(certPath string, keyPath string) (tls.Certificate, error) {",
+      "\tif keyPath == \"\" {",
+      "\t\tkeyPath = certPath",
+      "\t}",
+      "\treturn tls.LoadX509KeyPair(certPath, keyPath)",
+      "}",
+      "",
+    );
+  }
+
+  if (needsDialContextHelper(input)) {
+    imports.add("context");
+    imports.add("fmt");
+    imports.add("net");
+    blocks.push(
+      "func createCurlDialContext(curlDialConfig string) func(context.Context, string, string) (net.Conn, error) {",
+      "\treturn func(ctx context.Context, network string, address string) (net.Conn, error) {",
+      "\t\t_ = ctx",
+      "\t\t_ = network",
+      "\t\t_ = address",
+      "\t\treturn nil, fmt.Errorf(\"TODO: provide DialContext for curl DNS/network controls: %s\", curlDialConfig)",
+      "\t}",
+      "}",
+      "",
+    );
+  }
+
   return [
     "package main",
     "",
     "import (",
-    '\t"net/http/cookiejar"',
+    renderImports(imports),
     ")",
     "",
-    "func loadCookieJar(path string) (*cookiejar.Jar, error) {",
-    "\t_ = path",
-    "\treturn cookiejar.New(nil)",
-    "}",
-    "",
+    ...blocks,
   ].join("\n").replace(/\t/gu, "    ");
 }
 
-function augmentGoOutput(input: GenerateInput, output: GenerateOutput): GenerateOutput {
-  const argv = argvStrings(input.ir);
-  let next = output;
-  if (cookieJarPath(argv)) {
-    next = withSupportItem(next, {
-      behavior: "cookies.jar",
-      level: "requires-runtime-helper",
-      message: "Cookie jar files require helper loading for net/http cookie jars.",
-    });
-    next = withDiagnostic(next, {
-      code: "W_TARGET_HELPER_REQUIRED",
-      severity: "warning",
-      category: "support",
-      message: "Cookie jar replay requires generated helper.go.",
-      details: {
-        target: "go.net_http",
-        behavior: "cookies.jar",
-      },
-    });
-  }
-  return next;
-}
-
 export function applyGoNetHttpGenerator(input: GenerateInput, output: GenerateOutput): GenerateOutput {
-  const argv = argvStrings(input.ir);
   const files: GeneratedFile[] = [
     {
       path: "main.go",
@@ -436,15 +571,15 @@ export function applyGoNetHttpGenerator(input: GenerateInput, output: GenerateOu
       content: renderGoMain(input),
     },
   ];
-  if (cookieJarPath(argv)) {
+  if (needsCookieJarHelper(input) || needsTlsHelper(input) || needsDialContextHelper(input)) {
     files.push({
       path: "helper.go",
       role: "helper",
-      content: renderGoHelper(),
+      content: renderGoHelper(input),
     });
   }
-  return augmentGoOutput(input, {
+  return {
     ...output,
     files,
-  });
+  };
 }

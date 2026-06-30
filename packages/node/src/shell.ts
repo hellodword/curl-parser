@@ -400,7 +400,7 @@ export function createParseInputFromArgv(
   }
 
   return {
-    schemaVersion: "curl-parse-input/v1",
+    schemaVersion: "curl-parse-input/v2",
     inputMode: "argv",
     argv: [...argv],
     ...(argvSpans ? { argvSpans: argvSpans.map((span) => ({ ...span })) } : {}),

@@ -26,6 +26,10 @@
           "type": "string",
           "enum": ["allow", "inline", "forbid"]
         },
+        "style": {
+          "type": "string",
+          "enum": ["sync", "async"]
+        },
         "format": {
           "type": "boolean"
         }
@@ -38,10 +42,11 @@
     "target": {
       "type": "string",
       "enum": [
-        "c.libcurl",
         "python.requests",
+        "python.httpx",
         "js.fetch",
         "js.undici",
+        "js.axios",
         "go.net_http",
         "rust.reqwest"
       ]

@@ -37,6 +37,15 @@ try {
 }
 ```
 
+Generate from an existing IR without instantiating Wasm:
+
+```ts
+import { generateCodeFromIr } from "@hellodword/curl-parser";
+
+const output = generateCodeFromIr(parsed.ir, { target: "js.fetch" });
+console.log(output.files[0].content);
+```
+
 ## Browser
 
 ```ts
@@ -60,5 +69,5 @@ curl-parser parse -- "curl https://example.com"
 
 - API: `../../docs/api.md`
 - Targets: `../../docs/targets.md`
-- Contracts: `../../docs/contracts/ir-v1.md`,
-  `../../docs/contracts/wasm-abi-v1.md`
+- Contracts: `../../docs/contracts/ir-v2.md`,
+  `../../docs/contracts/wasm-abi-v2.md`

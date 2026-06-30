@@ -1,0 +1,143 @@
+{
+  "$id": "https://schemas.curl-parser.dev/generate-output.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser generate output v2",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "target",
+    "files",
+    "plan",
+    "support",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-generate-output/v2"
+    },
+    "target": {
+      "$ref": "generate-input.v2.schema.json#/$defs/target"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/generatedFile"
+      }
+    },
+    "plan": {
+      "$ref": "#/$defs/requestPlan"
+    },
+    "support": {
+      "$ref": "#/$defs/supportReport"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "diagnostics.v2.schema.json#/$defs/diagnostic"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "generatedFile": {
+      "type": "object",
+      "required": ["path", "content"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["main", "helper", "manifest", "test", "documentation"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "requestPlan": {
+      "type": "object",
+      "required": ["target", "transfers"],
+      "properties": {
+        "target": {
+          "$ref": "generate-input.v2.schema.json#/$defs/target"
+        },
+        "transfers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "steps"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["behavior", "capability"],
+                  "properties": {
+                    "behavior": {
+                      "type": "string"
+                    },
+                    "capability": {
+                      "type": "string",
+                      "enum": [
+                        "native",
+                        "lossy",
+                        "requires-runtime-helper",
+                        "unsupported"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "supportReport": {
+      "type": "object",
+      "required": ["level", "items"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["exact", "lossy", "requires-runtime-helper", "unsupported"]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["behavior", "level", "message"],
+            "properties": {
+              "behavior": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": ["lossy", "requires-runtime-helper", "unsupported"]
+              },
+              "message": {
+                "type": "string"
+              },
+              "source": {
+                "$ref": "diagnostics.v2.schema.json#/$defs/sourceSpan"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

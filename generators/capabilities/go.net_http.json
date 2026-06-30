@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-target-capabilities/v1",
+  "schemaVersion": "curl-target-capabilities/v2",
   "target": "go.net_http",
   "library": {
     "name": "net/http",
@@ -9,60 +9,114 @@
   },
   "behaviors": {
     "url": {
+      "id": "url",
       "capability": "native",
       "message": "net/http accepts request URLs directly."
     },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
     "method": {
+      "id": "method",
       "capability": "native",
       "message": "net/http supports explicit HTTP methods."
     },
     "headers": {
+      "id": "headers",
       "capability": "native",
       "message": "net/http supports request headers."
     },
     "body.raw": {
+      "id": "body.raw",
       "capability": "native",
       "message": "net/http supports raw request bodies."
     },
     "body.multipart": {
+      "id": "body.multipart",
       "capability": "native",
       "message": "net/http can construct multipart request bodies."
     },
     "auth.basic": {
+      "id": "auth.basic",
       "capability": "native",
       "message": "net/http supports basic auth headers."
     },
     "cookies.inline": {
+      "id": "cookies.inline",
       "capability": "native",
       "message": "net/http supports cookie headers."
     },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "requires-runtime-helper",
+      "message": "Cookie jar files require generated helper loading for net/http cookie jars.",
+      "requiredRuntime": "Filesystem access to the referenced cookie jar file."
+    },
     "proxy": {
+      "id": "proxy",
       "capability": "native",
       "message": "net/http transports support proxy configuration."
     },
     "tls.verify": {
+      "id": "tls.verify",
       "capability": "native",
       "message": "net/http transports support TLS verification settings."
     },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "go.net_http can load CA files into a tls.Config RootCAs pool."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "go.net_http can load client certificates into tls.Config Certificates."
+    },
+    "network": {
+      "id": "network",
+      "capability": "requires-runtime-helper",
+      "message": "go.net_http requires custom DialContext wiring to preserve curl network binding or connection routing.",
+      "requiredRuntime": "Caller-provided net.Dialer or DialContext implementation."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "requires-runtime-helper",
+      "message": "go.net_http requires custom DialContext wiring to preserve curl DNS resolver overrides.",
+      "requiredRuntime": "Caller-provided resolver or DialContext implementation."
+    },
     "redirects": {
+      "id": "redirects",
       "capability": "native",
       "message": "net/http clients support redirect policy callbacks."
     },
     "timeout": {
+      "id": "timeout",
       "capability": "native",
       "message": "net/http clients and contexts support timeouts."
     },
     "http.version.2": {
+      "id": "http.version.2",
       "capability": "native",
-      "message": "net/http can use HTTP/2 with transport configuration."
+      "message": "net/http can use HTTP/2 with transport configuration; prior knowledge is lossy without custom transport wiring.",
+      "requiredFeature": "Go transport HTTP/2 support."
     },
     "http.version.3": {
+      "id": "http.version.3",
       "capability": "unsupported",
       "message": "net/http does not provide built-in HTTP/3 client behavior."
     },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "net/http output cannot reproduce curl verbose or trace wire dumps."
+    },
     "external-ref": {
-      "capability": "unsupported",
-      "message": "External input referenced by the curl command cannot be generated."
+      "id": "external-ref",
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Filesystem or stdin access to referenced inputs."
     }
   }
 }

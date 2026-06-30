@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.requests",
+  "argv": [
+    "curl",
+    "-u",
+    "alice:secret",
+    "-H",
+    "x-test: yes",
+    "--data-raw",
+    "hello",
+    "https://example.com"
+  ],
+  "support": "exact"
+}

@@ -1380,9 +1380,9 @@ int curlparse_json_parse_input_ex(
     curlparse_json_free_input(out);
     return -1;
   }
-  if(strcmp(schema_version, "curl-parse-input/v1") != 0) {
+  if(strcmp(schema_version, "curl-parse-input/v2") != 0) {
     set_error(error, "$.schemaVersion", "Unsupported schema version",
-              "\"curl-parse-input/v1\"", schema_version);
+              "\"curl-parse-input/v2\"", schema_version);
     json_value_free(root);
     curlparse_json_free_input(out);
     return -1;

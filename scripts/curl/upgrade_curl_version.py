@@ -69,6 +69,22 @@ def main() -> int:
     run(
         [
             "python",
+            "scripts/curl/build_upgrade_inventory.py",
+            "--curl-root",
+            str(new_tag_dir),
+            "--source",
+            f"build/generated/source-inventory-{new_version}.json",
+            "--options",
+            f"build/generated/options-{new_version}.json",
+            "--guards",
+            f"build/generated/guards-{new_version}.json",
+            "--out-dir",
+            "build/generated",
+        ]
+    )
+    run(
+        [
+            "python",
             "scripts/curl/compare_curl_version.py",
             "--old-source",
             f"build/generated/source-inventory-{args.old_version}.json",

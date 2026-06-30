@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-target-capabilities/v1",
+  "schemaVersion": "curl-target-capabilities/v2",
   "target": "python.requests",
   "library": {
     "name": "requests",
@@ -9,60 +9,112 @@
   },
   "behaviors": {
     "url": {
+      "id": "url",
       "capability": "native",
       "message": "requests accepts request URLs directly."
     },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
     "method": {
+      "id": "method",
       "capability": "native",
       "message": "requests supports arbitrary HTTP methods."
     },
     "headers": {
+      "id": "headers",
       "capability": "native",
-      "message": "requests supports request headers."
+      "message": "requests supports request headers.",
+      "unsafeWhen": "Duplicate header names collapse in generated Python mapping literals."
     },
     "body.raw": {
+      "id": "body.raw",
       "capability": "native",
       "message": "requests supports raw body data."
     },
     "body.multipart": {
+      "id": "body.multipart",
       "capability": "native",
       "message": "requests supports multipart form data."
     },
     "auth.basic": {
+      "id": "auth.basic",
       "capability": "native",
       "message": "requests supports basic authentication."
     },
     "cookies.inline": {
+      "id": "cookies.inline",
       "capability": "native",
       "message": "requests supports inline cookies."
     },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "requires-runtime-helper",
+      "message": "Cookie jar files require helper loading through MozillaCookieJar.",
+      "requiredRuntime": "Filesystem access to the referenced cookie jar file."
+    },
     "proxy": {
+      "id": "proxy",
       "capability": "native",
       "message": "requests supports proxy dictionaries."
     },
     "tls.verify": {
+      "id": "tls.verify",
       "capability": "native",
       "message": "requests supports TLS verification settings."
     },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "requests can pass a per-request CA bundle path."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "requests can pass per-request TLS client certificate paths."
+    },
+    "network": {
+      "id": "network",
+      "capability": "unsupported",
+      "message": "requests output does not preserve curl network binding or connection routing."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "unsupported",
+      "message": "requests output does not preserve curl DNS resolver overrides."
+    },
     "redirects": {
+      "id": "redirects",
       "capability": "native",
       "message": "requests supports redirect following and limits."
     },
     "timeout": {
+      "id": "timeout",
       "capability": "native",
       "message": "requests supports connect and read timeouts."
     },
     "http.version.2": {
+      "id": "http.version.2",
       "capability": "lossy",
       "message": "requests does not expose forced HTTP/2 selection; generated code uses transport defaults."
     },
     "http.version.3": {
+      "id": "http.version.3",
       "capability": "unsupported",
       "message": "requests does not expose HTTP/3 selection."
     },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "requests output cannot reproduce curl verbose or trace wire dumps."
+    },
     "external-ref": {
-      "capability": "unsupported",
-      "message": "External input referenced by the curl command cannot be generated."
+      "id": "external-ref",
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Filesystem or stdin access to referenced inputs."
     }
   }
 }

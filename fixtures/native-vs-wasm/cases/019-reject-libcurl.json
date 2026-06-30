@@ -1,0 +1,10 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--libcurl",
+    "out.c",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

@@ -101,17 +101,18 @@ async function main(argv = process.argv.slice(2)): Promise<number> {
 
   if (command === "targets") {
     const generatorTargets = new Set([
-      "c.libcurl",
       "python.requests",
+      "python.httpx",
       "js.fetch",
       "js.undici",
+      "js.axios",
       "go.net_http",
       "rust.reqwest",
     ]);
     const summary = listTargets().map((target) => ({
       target,
       generator: generatorTargets.has(target),
-      capabilitySchema: "curl-target-capabilities/v1",
+      capabilitySchema: "curl-target-capabilities/v2",
     }));
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     return 0;

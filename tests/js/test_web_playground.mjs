@@ -133,7 +133,7 @@ try {
 
   const parsed = await parser.parseCurl(shell.input);
   assert.equal(parsed.ok, true);
-  assert.equal(parsed.ir?.schemaVersion, "curl-ir/v1");
+  assert.equal(parsed.ir?.schemaVersion, "curl-ir/v2");
 
   const generated = await parser.generateCode(parsed, { target: "js.fetch" });
   assert.equal(generated.target, "js.fetch");
@@ -192,9 +192,6 @@ try {
   );
   assert(ftpFetch.files[0]?.content.includes("throw new Error"));
   assert.equal(ftpFetch.files[0]?.content.includes("fetch("), false);
-  const ftpLibcurl = await parser.generateCode(ftpParsed, { target: "c.libcurl" });
-  assert.equal(ftpLibcurl.support.level, "exact");
-  assert(ftpLibcurl.files[0]?.content.includes("ftp://ftp.example.com/README"));
 
   const externalRefShell = parseShellCommand("curl --data @missing.txt https://example.com", {
     shellDialect: "posix-sh",

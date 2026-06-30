@@ -1,0 +1,357 @@
+{
+  "$id": "https://schemas.curl-parser.dev/parse-output.v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "curl-parser parse output v2",
+  "type": "object",
+  "required": [
+    "ok",
+    "schemaVersion",
+    "curlSourceVersion",
+    "runtimeProfileApplied",
+    "argv",
+    "operations",
+    "events",
+    "diagnostics",
+    "errors"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "curl-parse-output/v2"
+    },
+    "curlSourceVersion": {
+      "type": "string"
+    },
+    "runtimeProfileApplied": {
+      "$ref": "runtime-profile.v2.schema.json"
+    },
+    "ir": {
+      "$ref": "curl-ir.v2.schema.json"
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operationCapture"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/optionEvent"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "diagnostics.v2.schema.json#/$defs/guardMessage"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "diagnostics.v2.schema.json#/$defs/guardMessage"
+          },
+          {
+            "$ref": "diagnostics.v2.schema.json#/$defs/diagnostic"
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "sensitiveString": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": ["value", "sensitive"],
+          "properties": {
+            "value": {
+              "type": "string"
+            },
+            "sensitive": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "operationCapture": {
+      "type": "object",
+      "required": ["index", "urls", "config"],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/urlCapture"
+          }
+        },
+        "config": {
+          "$ref": "#/$defs/operationConfigCapture"
+        }
+      },
+      "additionalProperties": false
+    },
+    "urlCapture": {
+      "type": "object",
+      "required": ["url", "outfile", "infile", "urlNumber", "flags"],
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "outfile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "infile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "urlNumber": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "flags": {
+          "type": "object",
+          "required": ["outSet", "uploadSet", "useRemote", "noGlob", "outNull"],
+          "properties": {
+            "outSet": {
+              "type": "boolean"
+            },
+            "uploadSet": {
+              "type": "boolean"
+            },
+            "useRemote": {
+              "type": "boolean"
+            },
+            "noGlob": {
+              "type": "boolean"
+            },
+            "outNull": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "operationConfigCapture": {
+      "type": "object",
+      "required": [
+        "headers",
+        "proxyHeaders",
+        "cookies",
+        "proxy",
+        "proto",
+        "protoDefault",
+        "httpVersion",
+        "customRequest",
+        "uploadFile",
+        "postFields",
+        "postData",
+        "userAgent",
+        "userPwd",
+        "tls",
+        "auth",
+        "timeouts",
+        "retry",
+        "output"
+      ],
+      "properties": {
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proxyHeaders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proxy": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "proto": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "protoDefault": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "httpVersion": {
+          "type": ["integer", "null"]
+        },
+        "customRequest": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "uploadFile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "postFields": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "postData": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "userAgent": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "userPwd": {
+          "$ref": "#/$defs/sensitiveString"
+        },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "timeouts": {
+          "type": "object",
+          "required": [
+            "connectTimeoutMs",
+            "maxTimeMs",
+            "expect100TimeoutMs",
+            "happyEyeballsTimeoutMs"
+          ],
+          "properties": {
+            "connectTimeoutMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxTimeMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expect100TimeoutMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "happyEyeballsTimeoutMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "retry": {
+          "type": "object",
+          "required": ["count", "delayMs", "maxTimeMs"],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "delayMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxTimeMs": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": ["remoteNameAll", "outputDir", "headerFile"],
+          "properties": {
+            "remoteNameAll": {
+              "type": "boolean"
+            },
+            "outputDir": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "headerFile": {
+              "$ref": "#/$defs/nullableString"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "optionEvent": {
+      "type": "object",
+      "required": [
+        "operation",
+        "argvIndex",
+        "rawFlag",
+        "canonical",
+        "value",
+        "valueArgvIndex",
+        "usedNextArg",
+        "negated",
+        "isNext",
+        "isPositional"
+      ],
+      "properties": {
+        "operation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "argvIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rawFlag": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "canonical": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "value": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "valueArgvIndex": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "usedNextArg": {
+          "type": "boolean"
+        },
+        "negated": {
+          "type": "boolean"
+        },
+        "isNext": {
+          "type": "boolean"
+        },
+        "isPositional": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

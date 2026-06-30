@@ -1,8 +1,7 @@
 import { listTargets } from "./schemas.js";
-import { applyCodeGenerators } from "./code_generators.js";
+import { generateFromIr, normalizeGenerateInput } from "./generator/index.js";
 import { createParseInputFromArgv, parseShellCommand } from "./shell.js";
 import type {
-  CurlIr,
   CurlParser,
   Diagnostic,
   GenerateCodeInput,
@@ -21,31 +20,7 @@ function isParseInput(value: unknown): value is ParseInput {
   return Boolean(
     value &&
       typeof value === "object" &&
-      (value as { schemaVersion?: unknown }).schemaVersion === "curl-parse-input/v1",
-  );
-}
-
-function isParseOutput(value: unknown): value is ParseOutput {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      (value as { schemaVersion?: unknown }).schemaVersion === "curl-parse-output/v1",
-  );
-}
-
-function isCurlIr(value: unknown): value is CurlIr {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      (value as { schemaVersion?: unknown }).schemaVersion === "curl-ir/v1",
-  );
-}
-
-function isGenerateInput(value: unknown): value is GenerateInput {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      (value as { schemaVersion?: unknown }).schemaVersion === "curl-generate-input/v1",
+      (value as { schemaVersion?: unknown }).schemaVersion === "curl-parse-input/v2",
   );
 }
 
@@ -105,40 +80,6 @@ function withShellDiagnostics(output: ParseOutput, diagnostics: Diagnostic[]): P
   };
 }
 
-function normalizeGenerateInput(
-  input: GenerateCodeInput,
-  options: GenerateCodeOptions = {},
-): GenerateInput {
-  const target: Target = options.target ?? "js.fetch";
-
-  if (isGenerateInput(input)) {
-    return input;
-  }
-
-  if (isParseOutput(input)) {
-    if (!input.ir) {
-      throw new TypeError("ParseOutput does not contain ir");
-    }
-    return {
-      schemaVersion: "curl-generate-input/v1",
-      target,
-      ir: input.ir,
-      ...(options.options ? { options: options.options } : {}),
-    };
-  }
-
-  if (isCurlIr(input)) {
-    return {
-      schemaVersion: "curl-generate-input/v1",
-      target,
-      ir: input,
-      ...(options.options ? { options: options.options } : {}),
-    };
-  }
-
-  throw new TypeError("generateCode input must be GenerateInput, ParseOutput, or CurlIr");
-}
-
 class CurlParserHandle implements CurlParser {
   constructor(private readonly wasm: CurlParserWasm) {}
 
@@ -152,8 +93,7 @@ class CurlParserHandle implements CurlParser {
     input: GenerateCodeInput,
     options: GenerateCodeOptions = {},
   ): Promise<GenerateOutput> {
-    const normalized = normalizeGenerateInput(input, options);
-    return applyCodeGenerators(normalized, this.wasm.generate(normalized));
+    return generateCodeFromIr(input, options);
   }
 
   listTargets(): readonly Target[] {
@@ -167,6 +107,18 @@ class CurlParserHandle implements CurlParser {
 
 export function createParserFromWasm(wasm: CurlParserWasm): CurlParser {
   return new CurlParserHandle(wasm);
+}
+
+export function generateCodeFromIr(input: GenerateInput): GenerateOutput;
+export function generateCodeFromIr(
+  input: GenerateCodeInput,
+  options?: GenerateCodeOptions,
+): GenerateOutput;
+export function generateCodeFromIr(
+  input: GenerateCodeInput,
+  options: GenerateCodeOptions = {},
+): GenerateOutput {
+  return generateFromIr(normalizeGenerateInput(input, options));
 }
 
 export { createParseInputFromArgv, parseShellCommand, supportedShellDialects } from "./shell.js";

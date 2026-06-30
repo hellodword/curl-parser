@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.axios",
+  "argv": [
+    "curl",
+    "--socks5-hostname",
+    "socks.example:1080",
+    "https://example.com"
+  ],
+  "support": "requires-runtime-helper",
+  "contains": [
+    "function createSocksProxyAgent",
+    "\"socks5://socks.example:1080\"",
+    "requestOptions.proxy = false",
+    "requestOptions.httpAgent = proxyAgent",
+    "requestOptions.httpsAgent = proxyAgent"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.axios",
+  "argv": [
+    "curl",
+    "--http2",
+    "https://example.com"
+  ],
+  "options": {
+    "runtimeHelpers": "allow"
+  },
+  "support": "lossy",
+  "diagnostic": "W_TARGET_LOSSY",
+  "contains": [
+    "requestOptions.adapter = \"http\"",
+    "requestOptions.httpVersion = 2",
+    "requestOptions.http2Options = {}"
+  ]
+}

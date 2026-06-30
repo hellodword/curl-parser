@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.httpx",
+  "argv": [
+    "curl",
+    "--http2",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "with httpx.Client(http2=True) as session:"
+  ]
+}

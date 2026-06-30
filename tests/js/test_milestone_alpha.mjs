@@ -12,7 +12,7 @@ assert.equal(milestone.generateCases.length, 5);
 for (const argv of milestone.parseCases) {
   const parsed = await parseCurl(argv);
   assert.equal(parsed.ok, true, argv.join(" "));
-  assert.equal(parsed.ir?.schemaVersion, "curl-ir/v1", argv.join(" "));
+  assert.equal(parsed.ir?.schemaVersion, "curl-ir/v2", argv.join(" "));
   assert(parsed.ir?.groups?.[0]?.transfers?.[0]?.url, argv.join(" "));
 }
 

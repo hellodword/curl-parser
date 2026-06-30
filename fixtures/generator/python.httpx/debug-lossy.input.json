@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.httpx",
+  "argv": [
+    "curl",
+    "-v",
+    "https://example.com"
+  ],
+  "support": "lossy",
+  "diagnostic": "W_TARGET_LOSSY",
+  "contains": [
+    "event_hooks={\"request\": [log_request], \"response\": [log_response]}",
+    "def log_request(request):",
+    "def log_response(response):"
+  ]
+}

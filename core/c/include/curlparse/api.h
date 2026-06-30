@@ -19,13 +19,6 @@ int32_t curlparse_parse_json(
   uint32_t out_pair_ptr
 );
 
-int32_t curlparse_generate_json(
-  uint32_t engine,
-  uint32_t input_ptr,
-  uint32_t input_len,
-  uint32_t out_pair_ptr
-);
-
 void *curlparse_native_ptr(uint32_t ptr, uint32_t size);
 
 int curlparse_parse_native_json(

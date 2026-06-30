@@ -2,5 +2,5 @@
   "$id": "https://schemas.curl-parser.dev/runtime-profile.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "curl-parser runtime profile",
-  "$ref": "runtime-profile.v1.schema.json"
+  "$ref": "runtime-profile.v2.schema.json"
 }

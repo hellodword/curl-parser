@@ -58,7 +58,12 @@ async function goTest(name, generatedFiles) {
 async function testCompileCases() {
   const get = await generate(["curl", "https://example.com"]);
   assert(get.files[0].content.includes("http.NewRequestWithContext"));
+  assert(get.files[0].content.includes("http.ErrUseLastResponse"));
   await goTest("get", get.files);
+
+  const redirects = await generate(["curl", "-L", "--max-redirs", "3", "https://example.com"]);
+  assert(redirects.files[0].content.includes("if len(via) >= 3"));
+  await goTest("redirects", redirects.files);
 
   const post = await generate(["curl", "--data-raw", "hello", "https://example.com"]);
   assert(post.files[0].content.includes('strings.NewReader("hello")'));
@@ -101,6 +106,60 @@ async function testCompileCases() {
   assert(source.includes("InsecureSkipVerify"));
   assert(source.includes("http.ProxyURL"));
   await goTest("options", options.files);
+
+  const tls = await generate([
+    "curl",
+    "-k",
+    "--cacert",
+    "ca.pem",
+    "--cert",
+    "client.pem",
+    "--key",
+    "client.key",
+    "https://example.com",
+  ]);
+  const tlsSource = tls.files.map((file) => file.content).join("\n");
+  assert.equal(tls.output.support.level, "requires-runtime-helper");
+  assert(tls.files.some((file) => file.path === "helper.go"));
+  assert(tlsSource.includes("loadCAPool"));
+  assert(tlsSource.includes("loadClientCertificate"));
+  assert(tlsSource.includes("tlsConfig.RootCAs = rootCAs"));
+  assert(tlsSource.includes("tlsConfig.Certificates = []tls.Certificate{clientCert}"));
+  await goTest("tls-helper", tls.files);
+
+  const dial = await generate([
+    "curl",
+    "--resolve",
+    "example.com:443:203.0.113.10",
+    "--interface",
+    "eth0",
+    "https://example.com",
+  ]);
+  const dialSource = dial.files.map((file) => file.content).join("\n");
+  assert.equal(dial.output.support.level, "requires-runtime-helper");
+  assert(dial.output.support.items.some((item) => item.behavior === "dns" && item.level === "requires-runtime-helper"));
+  assert(dial.output.support.items.some((item) => item.behavior === "network" && item.level === "requires-runtime-helper"));
+  assert(dialSource.includes("createCurlDialContext"));
+  assert(dialSource.includes("example.com:443:203.0.113.10"));
+  await goTest("dial-helper", dial.files);
+
+  const connectTimeout = await generate(["curl", "--connect-timeout", "2", "https://example.com"]);
+  assert(connectTimeout.files[0].content.includes("net.Dialer{Timeout: 2000 * time.Millisecond}"));
+  await goTest("connect-timeout", connectTimeout.files);
+
+  const debug = await generate(["curl", "-v", "https://example.com"]);
+  const debugSource = debug.files[0].content;
+  assert.equal(debug.output.support.level, "lossy");
+  assert(debug.output.diagnostics.some((item) => item.code === "W_TARGET_LOSSY"));
+  assert(debugSource.includes("httputil.DumpRequestOut"));
+  assert(debugSource.includes("httputil.DumpResponse"));
+  await goTest("debug", debug.files);
+
+  const priorKnowledge = await generate(["curl", "--http2-prior-knowledge", "https://example.com"]);
+  assert.equal(priorKnowledge.output.support.level, "lossy");
+  assert(priorKnowledge.output.support.items.some((item) => item.behavior === "http.version.2" && item.level === "lossy"));
+  assert(priorKnowledge.files[0].content.includes("ForceAttemptHTTP2"));
+  await goTest("http2-prior-knowledge", priorKnowledge.files);
 
   const multi = await generate(["curl", "https://a.test", "--next", "https://b.test"]);
   const multiSource = multi.files[0].content;

@@ -1,0 +1,10 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--variable",
+    "secret@secret.txt",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

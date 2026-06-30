@@ -2,5 +2,5 @@
   "$id": "https://schemas.curl-parser.dev/parse-output.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "curl-parser parse output",
-  "$ref": "parse-output.v1.schema.json"
+  "$ref": "parse-output.v2.schema.json"
 }

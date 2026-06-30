@@ -8,8 +8,8 @@ This directory holds the canonical documentation for `curl-parser`.
 - `targets.md`: code generation targets, generated files, and capability notes.
 - `maintenance.md`: repository layout, build tasks, test commands, artifact
   policy, curl source handling, and known regression traps.
-- `contracts/ir-v1.md`: Curl IR v1 contract.
-- `contracts/wasm-abi-v1.md`: Wasm ABI v1 contract.
+- `contracts/ir-v2.md`: Curl IR v2 contract.
+- `contracts/wasm-abi-v2.md`: Wasm ABI v2 parse-only contract.
 
 ## Source Of Truth
 

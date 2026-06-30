@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "curl-target-capabilities/v2",
+  "target": "js.axios",
+  "library": {
+    "name": "axios",
+    "ecosystem": "javascript",
+    "minimumVersion": "1.6",
+    "notes": "Node-oriented Axios request target."
+  },
+  "behaviors": {
+    "url": {
+      "id": "url",
+      "capability": "native",
+      "message": "axios accepts request URLs directly."
+    },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
+    "method": {
+      "id": "method",
+      "capability": "native",
+      "message": "axios supports explicit HTTP methods."
+    },
+    "headers": {
+      "id": "headers",
+      "capability": "native",
+      "message": "axios supports request headers.",
+      "unsafeWhen": "Duplicate header names may be coalesced by generated JavaScript header structures."
+    },
+    "body.raw": {
+      "id": "body.raw",
+      "capability": "native",
+      "message": "axios supports raw request bodies."
+    },
+    "body.multipart": {
+      "id": "body.multipart",
+      "capability": "native",
+      "message": "axios supports multipart bodies through FormData."
+    },
+    "auth.basic": {
+      "id": "auth.basic",
+      "capability": "native",
+      "message": "axios can send basic auth through the Authorization header."
+    },
+    "cookies.inline": {
+      "id": "cookies.inline",
+      "capability": "native",
+      "message": "axios can send explicit Cookie headers."
+    },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "unsupported",
+      "message": "axios target does not load curl cookie jar files."
+    },
+    "proxy": {
+      "id": "proxy",
+      "capability": "native",
+      "message": "Node Axios supports HTTP(S) proxy objects; SOCKS or proxy TLS/header replay requires custom agent wiring.",
+      "requiredRuntime": "Node.js Axios HTTP adapter.",
+      "unsafeWhen": "SOCKS proxies, proxy TLS settings, and proxy-only headers require a caller-provided proxy agent helper."
+    },
+    "tls.verify": {
+      "id": "tls.verify",
+      "capability": "native",
+      "message": "axios can use HTTPS agents for TLS verification settings."
+    },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "Node Axios can use https.Agent for per-request TLS CA settings."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "Node Axios can use https.Agent for TLS client certificate settings."
+    },
+    "network": {
+      "id": "network",
+      "capability": "unsupported",
+      "message": "axios renderer does not yet preserve curl network binding or connection routing."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "unsupported",
+      "message": "axios renderer does not yet preserve curl DNS resolver overrides."
+    },
+    "redirects": {
+      "id": "redirects",
+      "capability": "native",
+      "message": "axios supports redirect behavior through Node adapter options."
+    },
+    "timeout": {
+      "id": "timeout",
+      "capability": "native",
+      "message": "axios supports request timeout options."
+    },
+    "http.version.2": {
+      "id": "http.version.2",
+      "capability": "lossy",
+      "message": "Axios HTTP/2 support is Node HTTP adapter and runtime dependent, and HTTP/2 redirects are limited.",
+      "requiredRuntime": "Node.js Axios HTTP adapter with HTTP/2 support."
+    },
+    "http.version.3": {
+      "id": "http.version.3",
+      "capability": "unsupported",
+      "message": "axios does not expose HTTP/3 selection."
+    },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "axios output cannot reproduce curl verbose or trace wire dumps."
+    },
+    "external-ref": {
+      "id": "external-ref",
+      "capability": "requires-runtime-helper",
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Node.js filesystem access to referenced inputs."
+    }
+  }
+}

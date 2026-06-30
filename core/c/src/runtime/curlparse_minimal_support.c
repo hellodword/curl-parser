@@ -1,1 +1,1 @@
-/* Placeholder support unit for event-scan and other narrow upstream probes. */
+/* Shared support unit for parser/runtime compatibility probes. */

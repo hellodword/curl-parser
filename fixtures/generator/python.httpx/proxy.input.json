@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.httpx",
+  "argv": [
+    "curl",
+    "--proxy",
+    "http://user:pass@proxy.example:8080",
+    "-L",
+    "--max-redirs",
+    "3",
+    "--connect-timeout",
+    "2",
+    "--max-time",
+    "5",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "proxy=\"http://user:pass@proxy.example:8080\"",
+    "max_redirects=3",
+    "request_kwargs[\"timeout\"] = httpx.Timeout(5, connect=2)",
+    "request_kwargs[\"follow_redirects\"] = True"
+  ],
+  "notContains": [
+    "request_kwargs[\"proxy\"]"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.httpx",
+  "argv": [
+    "curl",
+    "--cacert",
+    "ca.pem",
+    "--cert",
+    "client.pem",
+    "--key",
+    "client.key",
+    "https://example.com"
+  ],
+  "support": "requires-runtime-helper",
+  "contains": [
+    "verify=\"ca.pem\"",
+    "cert=(\"client.pem\", \"client.key\")"
+  ]
+}

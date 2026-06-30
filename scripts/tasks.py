@@ -32,6 +32,19 @@ NATIVE_LIB = NATIVE_DIR / "libcurlparse.so"
 NODE_PACKAGE_DIR = REPO_ROOT / "packages" / "node"
 WEB_PLAYGROUND_DIR = REPO_ROOT / "apps" / "web-playground"
 GITHUB_NPM_TARBALL_LIMIT = 256 * 1024 * 1024
+WASM_FORBIDDEN_STRINGS = [
+    b"curlparse_" + b"generate_json",
+    b"c." + b"libcurl",
+    b"python.httpx",
+    b"js.axios",
+    b"js.fetch",
+    b"js.undici",
+    b"go.net_http",
+    b"rust.reqwest",
+    b"curl-target-capabilities",
+    b"curl-generate-output",
+    b"requires-runtime-helper",
+]
 OWNED_TESTS = [
     ("abi_smoke_test", "core/c/tests/abi/abi_smoke_test.c"),
     ("curlparse_core_test", "core/c/tests/core/curlparse_core_test.c"),
@@ -176,7 +189,7 @@ def doctor(_args: argparse.Namespace) -> None:
         python_version,
         ">=3.10",
         "ok" if sys.version_info >= (3, 10) else "fail",
-        "install Python 3.10 or newer",
+        "enter Nix dev shell or update flake.nix",
     )
 
     node_path = resolve_tool(["node"])
@@ -187,7 +200,7 @@ def doctor(_args: argparse.Namespace) -> None:
         node_version,
         ">=20",
         "ok" if node_rc == 0 and check_min_version(node_version, (20, 0, 0)) else "fail",
-        "install Node.js 20 or newer",
+        "enter Nix dev shell or update flake.nix",
     )
 
     tsc_path = resolve_tool(["tsc"])
@@ -198,7 +211,7 @@ def doctor(_args: argparse.Namespace) -> None:
         tsc_version,
         "TypeScript compiler",
         "ok" if tsc_rc == 0 else "fail",
-        "install TypeScript",
+        "enter Nix dev shell or update flake.nix",
     )
 
     git_path = resolve_tool(["git"])
@@ -209,7 +222,7 @@ def doctor(_args: argparse.Namespace) -> None:
         git_version,
         "present",
         "ok" if git_rc == 0 else "fail",
-        "install git",
+        "enter Nix dev shell or update flake.nix",
     )
 
     cc_command = cc()
@@ -221,7 +234,7 @@ def doctor(_args: argparse.Namespace) -> None:
         cc_version,
         "C99 compiler",
         "ok" if cc_rc == 0 else "fail",
-        "install zig or clang, or set CC",
+        "enter Nix dev shell or update flake.nix",
     )
 
     wasm_command = wasm_cc()
@@ -236,7 +249,7 @@ def doctor(_args: argparse.Namespace) -> None:
         wasm_version,
         "wasm32-wasi C compiler",
         "ok" if wasm_rc == 0 else "fail",
-        "install zig or a WASI-capable clang, or set WASM_CC",
+        "enter Nix dev shell or update flake.nix",
     )
 
     curl_manifest = CURL_ROOT / "manifest.json"
@@ -255,12 +268,17 @@ def doctor(_args: argparse.Namespace) -> None:
         curl_version,
         CURL_TAG,
         "ok" if curl_manifest.is_file() and curl_version != "invalid manifest" else "warn",
-        "run python scripts/tasks.py bootstrap",
+        "run nix develop --command python scripts/tasks.py bootstrap",
     )
 
     generated_required = [
         GENERATED_DIR / "curlparse_sources.rsp",
         GENERATED_DIR / "minimal_curl_support.rsp",
+        GENERATED_DIR / "curl-options.json",
+        GENERATED_DIR / "curl-guards.json",
+        GENERATED_DIR / "curl-operation-config-fields.json",
+        GENERATED_DIR / "curl-source-inventory.json",
+        GENERATED_DIR / "curl-runtime-features.json",
         GENERATED_HEADER_DIR / "curlparse_guards.h",
         GENERATED_HEADER_DIR / "curlparse_stub_contracts.h",
     ]
@@ -271,7 +289,7 @@ def doctor(_args: argparse.Namespace) -> None:
         "ready" if not missing_generated else "missing",
         f"generated for curl {CURL_VERSION}",
         "ok" if not missing_generated else "warn",
-        "run python scripts/tasks.py generate",
+        "run nix develop --command python scripts/tasks.py generate",
     )
 
     print_doctor(rows)
@@ -290,7 +308,10 @@ def ensure_generated_inputs() -> None:
     missing = [path for path in required if not path.exists()]
     if missing:
         names = ", ".join(path.as_posix() for path in missing)
-        raise SystemExit(f"generated files missing: {names}; run scripts/tasks.py generate")
+        raise SystemExit(
+            "generated files missing: "
+            f"{names}; run nix develop --command python scripts/tasks.py generate"
+        )
 
 
 def bootstrap(_args: argparse.Namespace) -> None:
@@ -302,7 +323,9 @@ def bootstrap(_args: argparse.Namespace) -> None:
 
 def generate(_args: argparse.Namespace) -> None:
     if not CURL_ROOT.exists():
-        raise SystemExit("curl source missing; run scripts/tasks.py bootstrap")
+        raise SystemExit(
+            "curl source missing; run nix develop --command python scripts/tasks.py bootstrap"
+        )
 
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     GENERATED_HEADER_DIR.mkdir(parents=True, exist_ok=True)
@@ -336,12 +359,27 @@ def generate(_args: argparse.Namespace) -> None:
     ])
     run([
         "python",
+        "scripts/curl/build_upgrade_inventory.py",
+        "--curl-root",
+        f"third_party/curl/{CURL_TAG}",
+        "--source",
+        f"build/generated/source-inventory-{CURL_VERSION}.json",
+        "--options",
+        f"build/generated/options-{CURL_VERSION}.json",
+        "--guards",
+        f"build/generated/guards-{CURL_VERSION}.json",
+        "--out-dir",
+        "build/generated",
+    ])
+    run([
+        "python",
         "scripts/build/build_stub_contracts.py",
         "--contracts",
         "core/c/src/runtime/stub-contracts.json",
         "--header",
         "build/generated/include/curlparse/generated/curlparse_stub_contracts.h",
     ])
+    run(["python", "scripts/build/generate_ts_types.py"])
     (GENERATED_DIR / "minimal_curl_support.rsp").write_text(
         "core/c/src/runtime/curlparse_minimal_support.c\n",
         encoding="utf-8",
@@ -413,7 +451,6 @@ def build_wasm(_args: argparse.Namespace) -> None:
         "-Wl,--export=curlparse_engine_new",
         "-Wl,--export=curlparse_engine_free",
         "-Wl,--export=curlparse_parse_json",
-        "-Wl,--export=curlparse_generate_json",
         *shlex.split(os.environ.get("WASM_LDFLAGS", "")),
         "-o",
         str(WASM_PATH),
@@ -458,6 +495,7 @@ def web_playground_build() -> None:
 def lint(_args: argparse.Namespace) -> None:
     if not WASM_PATH.exists():
         build_wasm(argparse.Namespace())
+    run(["python", "scripts/build/generate_ts_types.py", "--check"])
     run(["python", "scripts/build/build_node_package.py"])
     web_playground_build()
     run(["python", "-m", "compileall", "scripts", "tests"])
@@ -466,7 +504,6 @@ def lint(_args: argparse.Namespace) -> None:
     run(["tsc", "-p", "packages/node/test/types/tsconfig.json"])
     run(["node", "--check", "tests/js/test_shell_parser.mjs"])
     run(["node", "--check", "tests/js/test_node_package.mjs"])
-    run(["node", "--check", "tests/js/test_libcurl_generator.mjs"])
     run(["node", "--check", "tests/js/test_python_requests_generator.mjs"])
     run(["node", "--check", "tests/js/test_javascript_generators.mjs"])
     run(["node", "--check", "tests/js/test_generated_code_no_tabs.mjs"])
@@ -479,6 +516,20 @@ def lint(_args: argparse.Namespace) -> None:
         run(["python", "-m", "json.tool", schema.as_posix()], stdout=subprocess.DEVNULL)
     for capability in sorted((REPO_ROOT / "generators" / "capabilities").glob("*.json")):
         run(["python", "-m", "json.tool", capability.as_posix()], stdout=subprocess.DEVNULL)
+    run([
+        "python",
+        "scripts/curl/validate_upgrade_inventory.py",
+        "--classification",
+        "config/curl-option-classification.json",
+        "--options",
+        "build/generated/curl-options.json",
+        "--guards",
+        "build/generated/curl-guards.json",
+        "--fields",
+        "build/generated/curl-operation-config-fields.json",
+        "--runtime-features",
+        "build/generated/curl-runtime-features.json",
+    ])
     run(["python", "scripts/release/validate_contracts.py"])
 
 
@@ -496,7 +547,6 @@ def test(_args: argparse.Namespace) -> None:
     run(["node", "tests/js/test_shell_parser.mjs"])
     run(["node", "tests/js/test_node_package.mjs"])
     run(["python", "tests/python/test_request_plan.py"])
-    run(["node", "tests/js/test_libcurl_generator.mjs"])
     run(["node", "tests/js/test_python_requests_generator.mjs"])
     run(["node", "tests/js/test_javascript_generators.mjs"])
     run(["node", "tests/js/test_generated_code_no_tabs.mjs"])
@@ -576,6 +626,63 @@ def wasm_sections(path: Path) -> list[tuple[int, str, int]]:
     return sections
 
 
+def read_leb_u32(data: bytes, offset: int) -> tuple[int, int]:
+    shift = 0
+    value = 0
+    while True:
+        if offset >= len(data):
+            raise SystemExit("truncated wasm varint")
+        byte = data[offset]
+        offset += 1
+        value |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return value, offset
+        shift += 7
+        if shift > 35:
+            raise SystemExit("invalid wasm varint")
+
+
+def wasm_export_names(path: Path) -> list[str]:
+    data = path.read_bytes()
+    if len(data) < 8 or data[:4] != b"\x00asm":
+        raise SystemExit(f"{path.relative_to(REPO_ROOT)} is not a wasm module")
+    offset = 8
+    exports: list[str] = []
+    while offset < len(data):
+        section_id = data[offset]
+        offset += 1
+        section_size, offset = read_leb_u32(data, offset)
+        section_end = offset + section_size
+        if section_end > len(data):
+            raise SystemExit("truncated wasm section")
+        if section_id == 7:
+            count, cursor = read_leb_u32(data, offset)
+            for _ in range(count):
+                name_size, cursor = read_leb_u32(data, cursor)
+                name_end = cursor + name_size
+                if name_end > section_end:
+                    raise SystemExit("truncated wasm export name")
+                exports.append(data[cursor:name_end].decode("utf-8", errors="replace"))
+                cursor = name_end + 1
+                _, cursor = read_leb_u32(data, cursor)
+            break
+        offset = section_end
+    return exports
+
+
+def validate_wasm_residuals(path: Path) -> None:
+    exports = wasm_export_names(path)
+    generator_exports = sorted(name for name in exports if "generate" in name)
+    if generator_exports:
+        raise SystemExit(f"wasm generator exports are forbidden: {generator_exports}")
+
+    data = path.read_bytes()
+    residues = [needle.decode("utf-8", errors="replace") for needle in WASM_FORBIDDEN_STRINGS if needle in data]
+    if residues:
+        raise SystemExit(f"wasm generator residue strings are forbidden: {residues}")
+    print("wasm residuals ok")
+
+
 def size(args: argparse.Namespace) -> None:
     if not WASM_PATH.exists():
         build_wasm(argparse.Namespace())
@@ -583,6 +690,7 @@ def size(args: argparse.Namespace) -> None:
     print(f"{WASM_PATH.relative_to(REPO_ROOT)} {total} bytes")
     for section_id, label, section_size in wasm_sections(WASM_PATH):
         print(f"{section_id:2} {label:12} {section_size:7} bytes")
+    validate_wasm_residuals(WASM_PATH)
     if args.budget is not None and total > args.budget:
         raise SystemExit(f"wasm size {total} exceeds budget {args.budget}")
 

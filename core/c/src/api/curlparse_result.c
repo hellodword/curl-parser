@@ -205,7 +205,7 @@ static int append_runtime_profile(
 )
 {
   if(sb_append(sb, "{") != 0 ||
-     sb_append(sb, "\"schemaVersion\":\"curl-runtime-profile/v1\",") != 0 ||
+     sb_append(sb, "\"schemaVersion\":\"curl-runtime-profile/v2\",") != 0 ||
      sb_append(sb, "\"curlVersion\":") != 0 ||
      sb_append_json_string(sb, profile->curl_version ? profile->curl_version : "") != 0 ||
      sb_append(sb, ",\"protocols\":") != 0 ||
@@ -835,16 +835,21 @@ static const struct CurlparseOptionEvent *find_body_event(
   return NULL;
 }
 
-static int append_ir_header_array(
+static int append_ir_header_array_for(
   struct StringBuilder *sb,
   const struct CurlparseInput *input,
   const struct CurlparseEventScan *scan,
   const struct CurlparseExternalRefs *refs,
-  unsigned group_index
+  unsigned group_index,
+  const char *canonical
 )
 {
   size_t i;
   bool first = true;
+
+  if(!canonical) {
+    return -1;
+  }
 
   if(sb_append(sb, "[") != 0) {
     return -1;
@@ -859,7 +864,7 @@ static int append_ir_header_array(
 
     if(!event_in_group(event, group_index) ||
        !event->canonical ||
-       strcmp(event->canonical, "header") != 0 ||
+       strcmp(event->canonical, canonical) != 0 ||
        !event->value) {
       continue;
     }
@@ -906,6 +911,18 @@ static int append_ir_header_array(
   }
 
   return sb_append(sb, "]");
+}
+
+static int append_ir_header_array(
+  struct StringBuilder *sb,
+  const struct CurlparseInput *input,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  return append_ir_header_array_for(sb, input, scan, refs, group_index,
+                                    "header");
 }
 
 static int append_ir_cookie_array(
@@ -1045,40 +1062,873 @@ static int append_ir_method(
   return sb_append(sb, "}");
 }
 
-static const char *http_version_for_group(
+static const struct CurlparseOptionEvent *find_last_group_event(
+  const struct CurlparseEventScan *scan,
+  unsigned group_index,
+  const char *canonical
+)
+{
+  size_t i;
+  const struct CurlparseOptionEvent *found = NULL;
+
+  if(!scan || !canonical) {
+    return NULL;
+  }
+
+  for(i = 0; i < scan->event_count; ++i) {
+    const struct CurlparseOptionEvent *event = &scan->events[i];
+    if(event_in_group(event, group_index) &&
+       event->canonical &&
+       strcmp(event->canonical, canonical) == 0) {
+      found = event;
+    }
+  }
+
+  return found;
+}
+
+static const struct CurlparseOptionEvent *find_last_group_event_in(
+  const struct CurlparseEventScan *scan,
+  unsigned group_index,
+  const char *const *canonicals
+)
+{
+  size_t i;
+  const struct CurlparseOptionEvent *found = NULL;
+
+  if(!scan || !canonicals) {
+    return NULL;
+  }
+
+  for(i = 0; i < scan->event_count; ++i) {
+    const struct CurlparseOptionEvent *event = &scan->events[i];
+    size_t j;
+    if(!event_in_group(event, group_index) || !event->canonical) {
+      continue;
+    }
+    for(j = 0; canonicals[j]; ++j) {
+      if(strcmp(event->canonical, canonicals[j]) == 0) {
+        found = event;
+        break;
+      }
+    }
+  }
+
+  return found;
+}
+
+static bool group_has_event(
+  const struct CurlparseEventScan *scan,
+  unsigned group_index,
+  const char *canonical
+)
+{
+  return find_last_group_event(scan, group_index, canonical) != NULL;
+}
+
+static int append_property_prefix(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name
+)
+{
+  if(!first || !name) {
+    return -1;
+  }
+  if(!*first && sb_append(sb, ",") != 0) {
+    return -1;
+  }
+  *first = false;
+  return sb_append(sb, "\"") != 0 ||
+    sb_append(sb, name) != 0 ||
+    sb_append(sb, "\":") != 0 ? -1 : 0;
+}
+
+static int append_string_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const char *value
+)
+{
+  if(!value) {
+    return 0;
+  }
+  return append_property_prefix(sb, first, name) != 0 ||
+    sb_append_json_string(sb, value) != 0 ? -1 : 0;
+}
+
+static int append_nullable_string_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const char *value
+)
+{
+  return append_property_prefix(sb, first, name) != 0 ||
+    append_nullable_json_string(sb, value) != 0 ? -1 : 0;
+}
+
+static int append_bool_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  bool value
+)
+{
+  return append_property_prefix(sb, first, name) != 0 ||
+    sb_append(sb, value ? "true" : "false") != 0 ? -1 : 0;
+}
+
+static int append_long_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  long value
+)
+{
+  return append_property_prefix(sb, first, name) != 0 ||
+    sb_appendf(sb, "%ld", value) != 0 ? -1 : 0;
+}
+
+static int append_event_bool_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const struct CurlparseOptionEvent *event
+)
+{
+  if(!event) {
+    return 0;
+  }
+  return append_bool_property(sb, first, name, !event->negated);
+}
+
+static int append_event_value_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const struct CurlparseOptionEvent *event
+)
+{
+  return append_string_property(sb, first, name,
+                                event && event->value ? event->value : NULL);
+}
+
+static int append_event_ref_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const struct CurlparseExternalRefs *refs,
+  const struct CurlparseOptionEvent *event
+)
+{
+  const char *ref_id;
+
+  if(!event) {
+    return 0;
+  }
+
+  ref_id = external_ref_id_for_event(refs, event, event->value);
+  return append_nullable_string_property(sb, first, name, ref_id);
+}
+
+static int append_event_values_array_property(
+  struct StringBuilder *sb,
+  bool *first,
+  const char *name,
+  const struct CurlparseEventScan *scan,
+  unsigned group_index,
+  const char *canonical
+)
+{
+  size_t i;
+  bool array_first = true;
+  bool found = false;
+
+  if(!scan || !canonical) {
+    return 0;
+  }
+
+  for(i = 0; i < scan->event_count; ++i) {
+    const struct CurlparseOptionEvent *event = &scan->events[i];
+    if(event_in_group(event, group_index) &&
+       event->canonical &&
+       strcmp(event->canonical, canonical) == 0 &&
+       event->value) {
+      found = true;
+      break;
+    }
+  }
+
+  if(!found) {
+    return 0;
+  }
+
+  if(append_property_prefix(sb, first, name) != 0 ||
+     sb_append(sb, "[") != 0) {
+    return -1;
+  }
+
+  for(i = 0; i < scan->event_count; ++i) {
+    const struct CurlparseOptionEvent *event = &scan->events[i];
+    if(!event_in_group(event, group_index) ||
+       !event->canonical ||
+       strcmp(event->canonical, canonical) != 0 ||
+       !event->value) {
+      continue;
+    }
+    if(!array_first && sb_append(sb, ",") != 0) {
+      return -1;
+    }
+    if(sb_append_json_string(sb, event->value) != 0) {
+      return -1;
+    }
+    array_first = false;
+  }
+
+  return sb_append(sb, "]");
+}
+
+static const struct CurlparseOptionEvent *http_version_event_for_group(
   const struct CurlparseEventScan *scan,
   unsigned group_index
 )
 {
-  if(find_group_event(scan, group_index, "http1.0")) {
+  static const char *const http_versions[] = {
+    "http0.9", "http1.0", "http1.1", "http2",
+    "http2-prior-knowledge", "http3", "http3-only", NULL
+  };
+  const struct CurlparseOptionEvent *event =
+    find_last_group_event_in(scan, group_index, http_versions);
+
+  if(event && event->negated) {
+    return NULL;
+  }
+  return event;
+}
+
+static const char *http_version_value_for_event(
+  const struct CurlparseOptionEvent *event
+)
+{
+  if(!event || !event->canonical) {
+    return NULL;
+  }
+  if(strcmp(event->canonical, "http0.9") == 0) {
+    return "0.9";
+  }
+  if(strcmp(event->canonical, "http1.0") == 0) {
     return "1.0";
   }
-  if(find_group_event(scan, group_index, "http1.1")) {
+  if(strcmp(event->canonical, "http1.1") == 0) {
     return "1.1";
   }
-  if(find_group_event(scan, group_index, "http2")) {
+  if(strcmp(event->canonical, "http2") == 0 ||
+     strcmp(event->canonical, "http2-prior-knowledge") == 0) {
     return "2";
   }
-  if(find_group_event(scan, group_index, "http3") ||
-     find_group_event(scan, group_index, "http3-only")) {
+  if(strcmp(event->canonical, "http3") == 0 ||
+     strcmp(event->canonical, "http3-only") == 0) {
     return "3";
   }
   return NULL;
 }
 
+static const char *http_version_policy_for_event(
+  const struct CurlparseOptionEvent *event
+)
+{
+  if(!event || !event->canonical) {
+    return NULL;
+  }
+  if(strcmp(event->canonical, "http2-prior-knowledge") == 0) {
+    return "prior-knowledge";
+  }
+  if(strcmp(event->canonical, "http3-only") == 0) {
+    return "only";
+  }
+  if(strcmp(event->canonical, "http2") == 0 ||
+     strcmp(event->canonical, "http3") == 0) {
+    return "allow-upgrade";
+  }
+  return "default";
+}
+
+static int append_ir_http_version(
+  struct StringBuilder *sb,
+  const struct CurlparseInput *input,
+  const struct CurlparseEventScan *scan,
+  unsigned group_index
+)
+{
+  const struct CurlparseOptionEvent *event =
+    http_version_event_for_group(scan, group_index);
+  const char *value = http_version_value_for_event(event);
+  const char *policy = http_version_policy_for_event(event);
+
+  if(!event || !value) {
+    return sb_append(sb, "null");
+  }
+
+  if(sb_append(sb, "{\"value\":") != 0 ||
+     sb_append_json_string(sb, value) != 0 ||
+     sb_append(sb, ",\"policy\":") != 0 ||
+     sb_append_json_string(sb, policy ? policy : "default") != 0 ||
+     sb_append(sb, ",\"source\":\"flag\",\"sourceSpan\":") != 0 ||
+     append_argv_source_span(sb, input, event->argv_index) != 0 ||
+     sb_append(sb, "}") != 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+static const char *proxy_mode_for_event(
+  const struct CurlparseOptionEvent *event
+)
+{
+  if(!event || !event->canonical) {
+    return NULL;
+  }
+  if(strcmp(event->canonical, "proxy1.0") == 0) {
+    return "http1.0";
+  }
+  if(strcmp(event->canonical, "socks4") == 0) {
+    return "socks4";
+  }
+  if(strcmp(event->canonical, "socks4a") == 0) {
+    return "socks4a";
+  }
+  if(strcmp(event->canonical, "socks5") == 0) {
+    return "socks5";
+  }
+  if(strcmp(event->canonical, "socks5-hostname") == 0) {
+    return "socks5-hostname";
+  }
+  return "http";
+}
+
+static const char *tls_min_version_for_group(
+  const struct CurlparseEventScan *scan,
+  unsigned group_index,
+  bool proxy
+)
+{
+  if(proxy) {
+    if(group_has_event(scan, group_index, "proxy-tlsv1")) {
+      return "1";
+    }
+    return NULL;
+  }
+  if(group_has_event(scan, group_index, "tlsv1.3")) {
+    return "1.3";
+  }
+  if(group_has_event(scan, group_index, "tlsv1.2")) {
+    return "1.2";
+  }
+  if(group_has_event(scan, group_index, "tlsv1.1")) {
+    return "1.1";
+  }
+  if(group_has_event(scan, group_index, "tlsv1.0")) {
+    return "1.0";
+  }
+  if(group_has_event(scan, group_index, "tlsv1")) {
+    return "1";
+  }
+  if(group_has_event(scan, group_index, "sslv3")) {
+    return "SSLv3";
+  }
+  if(group_has_event(scan, group_index, "sslv2")) {
+    return "SSLv2";
+  }
+  return NULL;
+}
+
+static int append_ir_proxy_tls(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  bool first = true;
+  const struct CurlparseOptionEvent *insecure =
+    find_last_group_event(scan, group_index, "proxy-insecure");
+  const struct CurlparseOptionEvent *ca_native =
+    find_last_group_event(scan, group_index, "proxy-ca-native");
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(insecure &&
+     append_bool_property(sb, &first, "verify", insecure->negated) != 0) {
+    return -1;
+  }
+  if(append_event_ref_property(sb, &first, "caFileRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "proxy-cacert")) != 0 ||
+     append_event_ref_property(sb, &first, "caPathRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "proxy-capath")) != 0 ||
+     append_event_bool_property(sb, &first, "nativeTrustStore",
+                                ca_native) != 0 ||
+     append_event_ref_property(sb, &first, "clientCertRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "proxy-cert")) != 0 ||
+     append_event_ref_property(sb, &first, "clientKeyRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "proxy-key")) != 0 ||
+     append_event_ref_property(sb, &first, "pinnedPublicKeyRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "proxy-pinnedpubkey")) != 0 ||
+     append_event_value_property(sb, &first, "certType",
+                                 find_last_group_event(scan, group_index,
+                                                       "proxy-cert-type")) != 0 ||
+     append_event_value_property(sb, &first, "keyType",
+                                 find_last_group_event(scan, group_index,
+                                                       "proxy-key-type")) != 0 ||
+     append_string_property(sb, &first, "minVersion",
+                            tls_min_version_for_group(scan, group_index,
+                                                      true)) != 0 ||
+     append_event_value_property(sb, &first, "ciphers",
+                                 find_last_group_event(scan, group_index,
+                                                       "proxy-ciphers")) != 0 ||
+     append_event_value_property(sb, &first, "tls13Ciphers",
+                                 find_last_group_event(scan, group_index,
+                                                       "proxy-tls13-ciphers")) != 0) {
+    return -1;
+  }
+  return sb_append(sb, "}");
+}
+
 static int append_ir_proxy(
+  struct StringBuilder *sb,
+  const struct CurlparseInput *input,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  static const char *const proxy_url_events[] = {
+    "proxy", "proxy1.0", "socks4", "socks4a", "socks5",
+    "socks5-hostname", NULL
+  };
+  const struct CurlparseOptionEvent *proxy =
+    find_last_group_event_in(scan, group_index, proxy_url_events);
+  bool first = true;
+  bool has_proxy_domain = proxy ||
+    group_has_event(scan, group_index, "noproxy") ||
+    group_has_event(scan, group_index, "proxytunnel") ||
+    group_has_event(scan, group_index, "proxy-http2") ||
+    group_has_event(scan, group_index, "proxy-header") ||
+    group_has_event(scan, group_index, "proxy-user") ||
+    group_has_event(scan, group_index, "proxy-insecure") ||
+    group_has_event(scan, group_index, "proxy-cacert") ||
+    group_has_event(scan, group_index, "proxy-cert") ||
+    group_has_event(scan, group_index, "proxy-key") ||
+    group_has_event(scan, group_index, "proxy-pinnedpubkey");
+
+  if(!has_proxy_domain) {
+    return sb_append(sb, "null");
+  }
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(proxy && proxy->value) {
+    if(append_string_property(sb, &first, "url", proxy->value) != 0 ||
+       append_string_property(sb, &first, "mode",
+                              proxy_mode_for_event(proxy)) != 0) {
+      return -1;
+    }
+  }
+  if(append_event_value_property(sb, &first, "noProxy",
+                                 find_last_group_event(scan, group_index,
+                                                       "noproxy")) != 0 ||
+     append_event_bool_property(sb, &first, "tunnel",
+                                find_last_group_event(scan, group_index,
+                                                      "proxytunnel")) != 0) {
+    return -1;
+  }
+  if(group_has_event(scan, group_index, "proxy-http2")) {
+    if(append_string_property(sb, &first, "httpVersion", "2") != 0) {
+      return -1;
+    }
+  }
+  if(group_has_event(scan, group_index, "proxy-header")) {
+    if(append_property_prefix(sb, &first, "headers") != 0 ||
+       append_ir_header_array_for(sb, input, scan, refs, group_index,
+                                  "proxy-header") != 0) {
+      return -1;
+    }
+  }
+  if(group_has_event(scan, group_index, "proxy-user")) {
+    const struct CurlparseOptionEvent *user =
+      find_last_group_event(scan, group_index, "proxy-user");
+    if(append_property_prefix(sb, &first, "auth") != 0 ||
+       sb_append(sb, "{\"scheme\":null,\"value\":") != 0 ||
+       append_nullable_json_string(sb, user ? user->value : NULL) != 0 ||
+       sb_append(sb, ",\"sensitive\":true}") != 0) {
+      return -1;
+    }
+  }
+  if(group_has_event(scan, group_index, "proxy-insecure") ||
+     group_has_event(scan, group_index, "proxy-cacert") ||
+     group_has_event(scan, group_index, "proxy-capath") ||
+     group_has_event(scan, group_index, "proxy-ca-native") ||
+     group_has_event(scan, group_index, "proxy-cert") ||
+     group_has_event(scan, group_index, "proxy-key") ||
+     group_has_event(scan, group_index, "proxy-pinnedpubkey") ||
+     group_has_event(scan, group_index, "proxy-cert-type") ||
+     group_has_event(scan, group_index, "proxy-key-type") ||
+     group_has_event(scan, group_index, "proxy-tlsv1") ||
+     group_has_event(scan, group_index, "proxy-ciphers") ||
+     group_has_event(scan, group_index, "proxy-tls13-ciphers")) {
+    if(append_property_prefix(sb, &first, "tls") != 0 ||
+       append_ir_proxy_tls(sb, scan, refs, group_index) != 0) {
+      return -1;
+    }
+  }
+  return sb_append(sb, "}");
+}
+
+static int append_ir_tls(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  bool first = true;
+  const struct CurlparseOptionEvent *insecure =
+    find_last_group_event(scan, group_index, "insecure");
+  const struct CurlparseOptionEvent *ca_native =
+    find_last_group_event(scan, group_index, "ca-native");
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(insecure &&
+     append_bool_property(sb, &first, "verify", insecure->negated) != 0) {
+    return -1;
+  }
+  if(append_event_ref_property(sb, &first, "caFileRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "cacert")) != 0 ||
+     append_event_ref_property(sb, &first, "caPathRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "capath")) != 0 ||
+     append_event_bool_property(sb, &first, "nativeTrustStore",
+                                ca_native) != 0 ||
+     append_event_ref_property(sb, &first, "clientCertRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "cert")) != 0 ||
+     append_event_ref_property(sb, &first, "clientKeyRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "key")) != 0 ||
+     append_event_ref_property(sb, &first, "pinnedPublicKeyRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "pinnedpubkey")) != 0 ||
+     append_event_value_property(sb, &first, "certType",
+                                 find_last_group_event(scan, group_index,
+                                                       "cert-type")) != 0 ||
+     append_event_value_property(sb, &first, "keyType",
+                                 find_last_group_event(scan, group_index,
+                                                       "key-type")) != 0 ||
+     append_string_property(sb, &first, "minVersion",
+                            tls_min_version_for_group(scan, group_index,
+                                                      false)) != 0 ||
+     append_event_value_property(sb, &first, "maxVersion",
+                                 find_last_group_event(scan, group_index,
+                                                       "tls-max")) != 0 ||
+     append_event_value_property(sb, &first, "ciphers",
+                                 find_last_group_event(scan, group_index,
+                                                       "ciphers")) != 0 ||
+     append_event_value_property(sb, &first, "tls13Ciphers",
+                                 find_last_group_event(scan, group_index,
+                                                       "tls13-ciphers")) != 0 ||
+     append_event_value_property(sb, &first, "curves",
+                                 find_last_group_event(scan, group_index,
+                                                       "curves")) != 0 ||
+     append_event_bool_property(sb, &first, "autoClientCert",
+                                find_last_group_event(scan, group_index,
+                                                      "ssl-auto-client-cert")) != 0 ||
+     append_event_bool_property(sb, &first, "earlyData",
+                                find_last_group_event(scan, group_index,
+                                                      "tls-earlydata")) != 0) {
+    return -1;
+  }
+  return sb_append(sb, "}");
+}
+
+static bool parse_long_value(const char *value, long *out)
+{
+  char *end = NULL;
+  long parsed;
+
+  if(!value || !*value || !out) {
+    return false;
+  }
+
+  parsed = strtol(value, &end, 10);
+  if(end == value || (end && *end)) {
+    return false;
+  }
+
+  *out = parsed;
+  return true;
+}
+
+static bool parse_seconds_to_milliseconds(const char *value, long *out)
+{
+  char *end = NULL;
+  double seconds;
+
+  if(!value || !*value || !out) {
+    return false;
+  }
+
+  seconds = strtod(value, &end);
+  if(end == value || (end && *end) || seconds < 0.0) {
+    return false;
+  }
+
+  *out = (long)(seconds * 1000.0 + 0.5);
+  return true;
+}
+
+static int append_ir_optional_redirects(
   struct StringBuilder *sb,
   const struct CurlparseEventScan *scan,
   unsigned group_index
 )
 {
-  const struct CurlparseOptionEvent *proxy = find_group_event(scan, group_index, "proxy");
-  if(!proxy || !proxy->value) {
-    return sb_append(sb, "null");
+  const struct CurlparseOptionEvent *location =
+    find_last_group_event(scan, group_index, "location");
+  const struct CurlparseOptionEvent *location_trusted =
+    find_last_group_event(scan, group_index, "location-trusted");
+  const struct CurlparseOptionEvent *follow =
+    location_trusted ? location_trusted : location;
+  const struct CurlparseOptionEvent *max_redirs =
+    find_last_group_event(scan, group_index, "max-redirs");
+  bool first = true;
+  long max_value;
+
+  if(!follow && !max_redirs) {
+    return 0;
   }
-  return sb_append(sb, "{\"url\":") != 0 ||
-    sb_append_json_string(sb, proxy->value) != 0 ||
-    sb_append(sb, "}") != 0 ? -1 : 0;
+
+  if(sb_append(sb, ",\"redirects\":{") != 0 ||
+     append_event_bool_property(sb, &first, "follow", follow) != 0) {
+    return -1;
+  }
+
+  if(max_redirs &&
+     parse_long_value(max_redirs->value, &max_value) &&
+     append_long_property(sb, &first, "max", max_value) != 0) {
+    return -1;
+  }
+
+  return sb_append(sb, "}");
+}
+
+static int append_ir_optional_timeouts(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  unsigned group_index
+)
+{
+  const struct CurlparseOptionEvent *connect_timeout =
+    find_last_group_event(scan, group_index, "connect-timeout");
+  const struct CurlparseOptionEvent *max_time =
+    find_last_group_event(scan, group_index, "max-time");
+  bool first = true;
+  long milliseconds;
+
+  if(!connect_timeout && !max_time) {
+    return 0;
+  }
+
+  if(sb_append(sb, ",\"timeouts\":{") != 0) {
+    return -1;
+  }
+
+  if(connect_timeout &&
+     parse_seconds_to_milliseconds(connect_timeout->value, &milliseconds) &&
+     append_long_property(sb, &first, "connectTimeoutMs", milliseconds) != 0) {
+    return -1;
+  }
+
+  if(max_time &&
+     parse_seconds_to_milliseconds(max_time->value, &milliseconds) &&
+     append_long_property(sb, &first, "maxTimeMs", milliseconds) != 0) {
+    return -1;
+  }
+
+  return sb_append(sb, "}");
+}
+
+static int append_ir_network(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  bool first = true;
+  const struct CurlparseOptionEvent *interface_event =
+    find_last_group_event(scan, group_index, "interface");
+  const struct CurlparseOptionEvent *unix_socket =
+    find_last_group_event(scan, group_index, "unix-socket");
+  const struct CurlparseOptionEvent *abstract_socket =
+    find_last_group_event(scan, group_index, "abstract-unix-socket");
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(append_event_value_property(sb, &first, "interface",
+                                 interface_event) != 0 ||
+     append_event_ref_property(sb, &first, "interfaceRefId", refs,
+                               interface_event) != 0) {
+    return -1;
+  }
+  if(group_has_event(scan, group_index, "ipv4") &&
+     append_string_property(sb, &first, "ipVersion", "ipv4") != 0) {
+    return -1;
+  }
+  if(group_has_event(scan, group_index, "ipv6") &&
+     append_string_property(sb, &first, "ipVersion", "ipv6") != 0) {
+    return -1;
+  }
+  if(append_event_value_property(sb, &first, "localPort",
+                                 find_last_group_event(scan, group_index,
+                                                       "local-port")) != 0 ||
+     append_event_ref_property(sb, &first, "unixSocketRefId", refs,
+                               unix_socket ? unix_socket : abstract_socket) != 0 ||
+     append_event_values_array_property(sb, &first, "connectTo", scan,
+                                        group_index, "connect-to") != 0 ||
+     append_event_bool_property(sb, &first, "haproxyProtocol",
+                                find_last_group_event(scan, group_index,
+                                                      "haproxy-protocol")) != 0 ||
+     append_event_value_property(sb, &first, "haproxyClientIp",
+                                 find_last_group_event(scan, group_index,
+                                                       "haproxy-clientip")) != 0) {
+    return -1;
+  }
+  return sb_append(sb, "}");
+}
+
+static int append_ir_dns(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  bool first = true;
+  const struct CurlparseOptionEvent *interface_event =
+    find_last_group_event(scan, group_index, "dns-interface");
+  const struct CurlparseOptionEvent *doh_insecure =
+    find_last_group_event(scan, group_index, "doh-insecure");
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(append_event_value_property(sb, &first, "interface",
+                                 interface_event) != 0 ||
+     append_event_ref_property(sb, &first, "interfaceRefId", refs,
+                               interface_event) != 0 ||
+     append_event_value_property(sb, &first, "ipv4Address",
+                                 find_last_group_event(scan, group_index,
+                                                       "dns-ipv4-addr")) != 0 ||
+     append_event_value_property(sb, &first, "ipv6Address",
+                                 find_last_group_event(scan, group_index,
+                                                       "dns-ipv6-addr")) != 0 ||
+     append_event_value_property(sb, &first, "servers",
+                                 find_last_group_event(scan, group_index,
+                                                       "dns-servers")) != 0 ||
+     append_event_value_property(sb, &first, "dohUrl",
+                                 find_last_group_event(scan, group_index,
+                                                       "doh-url")) != 0 ||
+     append_event_values_array_property(sb, &first, "resolve", scan,
+                                        group_index, "resolve") != 0) {
+    return -1;
+  }
+  if(doh_insecure &&
+     append_bool_property(sb, &first, "dohVerify",
+                          doh_insecure->negated) != 0) {
+    return -1;
+  }
+  return sb_append(sb, "}");
+}
+
+static int append_ir_debug(
+  struct StringBuilder *sb,
+  const struct CurlparseEventScan *scan,
+  const struct CurlparseExternalRefs *refs,
+  unsigned group_index
+)
+{
+  bool first = true;
+  const struct CurlparseOptionEvent *trace =
+    find_last_group_event(scan, group_index, "trace");
+  const struct CurlparseOptionEvent *trace_ascii =
+    find_last_group_event(scan, group_index, "trace-ascii");
+
+  if(sb_append(sb, "{") != 0) {
+    return -1;
+  }
+  if(append_event_bool_property(sb, &first, "verbose",
+                                find_last_group_event(scan, group_index,
+                                                      "verbose")) != 0) {
+    return -1;
+  }
+  if(trace || trace_ascii) {
+    const struct CurlparseOptionEvent *trace_event = trace_ascii ? trace_ascii : trace;
+    if(append_string_property(sb, &first, "traceFormat",
+                              trace_ascii ? "ascii" : "binary") != 0 ||
+       append_event_ref_property(sb, &first, "traceOutputRefId", refs,
+                                 trace_event) != 0) {
+      return -1;
+    }
+  }
+  if(append_event_value_property(sb, &first, "traceConfig",
+                                 find_last_group_event(scan, group_index,
+                                                       "trace-config")) != 0 ||
+     append_event_bool_property(sb, &first, "traceIds",
+                                find_last_group_event(scan, group_index,
+                                                      "trace-ids")) != 0 ||
+     append_event_bool_property(sb, &first, "traceTime",
+                                find_last_group_event(scan, group_index,
+                                                      "trace-time")) != 0 ||
+     append_event_ref_property(sb, &first, "headerOutputRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "dump-header")) != 0 ||
+     append_event_ref_property(sb, &first, "stderrRefId", refs,
+                               find_last_group_event(scan, group_index,
+                                                     "stderr")) != 0) {
+    return -1;
+  }
+  return sb_append(sb, "}");
+}
+
+static const char *auth_scheme_for_group(
+  const struct CurlparseEventScan *scan,
+  unsigned group_index
+)
+{
+  static const char *const auth_events[] = {
+    "basic", "digest", NULL
+  };
+  const struct CurlparseOptionEvent *event =
+    find_last_group_event_in(scan, group_index, auth_events);
+
+  if(!event || event->negated || !event->canonical) {
+    return NULL;
+  }
+
+  return event->canonical;
 }
 
 static int append_ir_effective(
@@ -1089,9 +1939,8 @@ static int append_ir_effective(
   unsigned group_index
 )
 {
-  const char *http_version = http_version_for_group(scan, group_index);
   const struct CurlparseOptionEvent *user = find_group_event(scan, group_index, "user");
-  const struct CurlparseOptionEvent *insecure = find_group_event(scan, group_index, "insecure");
+  const char *auth_scheme = auth_scheme_for_group(scan, group_index);
 
   if(sb_append(sb, "{\"method\":") != 0 ||
      append_ir_method(sb, input, scan, group_index) != 0 ||
@@ -1104,7 +1953,9 @@ static int append_ir_effective(
   }
 
   if(user && user->value) {
-    if(sb_append(sb, "\"scheme\":null,\"value\":") != 0 ||
+    if(sb_append(sb, "\"scheme\":") != 0 ||
+       append_nullable_json_string(sb, auth_scheme) != 0 ||
+       sb_append(sb, ",\"value\":") != 0 ||
        sb_append_json_string(sb, user->value) != 0 ||
        sb_append(sb, ",\"sensitive\":true") != 0) {
       return -1;
@@ -1114,11 +1965,19 @@ static int append_ir_effective(
   if(sb_append(sb, "},\"cookies\":") != 0 ||
      append_ir_cookie_array(sb, scan, refs, group_index) != 0 ||
      sb_append(sb, ",\"proxy\":") != 0 ||
-     append_ir_proxy(sb, scan, group_index) != 0 ||
-     sb_append(sb, ",\"tls\":{") != 0 ||
-     (insecure ? sb_append(sb, "\"verify\":false") : 0) != 0 ||
-     sb_append(sb, "},\"httpVersion\":") != 0 ||
-     append_nullable_json_string(sb, http_version) != 0 ||
+     append_ir_proxy(sb, input, scan, refs, group_index) != 0 ||
+     sb_append(sb, ",\"tls\":") != 0 ||
+     append_ir_tls(sb, scan, refs, group_index) != 0 ||
+     sb_append(sb, ",\"httpVersion\":") != 0 ||
+     append_ir_http_version(sb, input, scan, group_index) != 0 ||
+     append_ir_optional_redirects(sb, scan, group_index) != 0 ||
+     append_ir_optional_timeouts(sb, scan, group_index) != 0 ||
+     sb_append(sb, ",\"network\":") != 0 ||
+     append_ir_network(sb, scan, refs, group_index) != 0 ||
+     sb_append(sb, ",\"dns\":") != 0 ||
+     append_ir_dns(sb, scan, refs, group_index) != 0 ||
+     sb_append(sb, ",\"debug\":") != 0 ||
+     append_ir_debug(sb, scan, refs, group_index) != 0 ||
      sb_append(sb, "}") != 0) {
     return -1;
   }
@@ -1238,7 +2097,7 @@ static int append_ir(
 )
 {
   if(sb_append(sb, "{") != 0 ||
-     sb_append(sb, "\"schemaVersion\":\"curl-ir/v1\",") != 0 ||
+     sb_append(sb, "\"schemaVersion\":\"curl-ir/v2\",") != 0 ||
      sb_append(sb, "\"curlSourceVersion\":\"8.20.0\",") != 0 ||
      sb_append(sb, "\"command\":{\"inputMode\":\"argv\",\"argv\":") != 0 ||
      append_string_array(sb, input->argv, input->argv_count) != 0 ||
@@ -1271,7 +2130,7 @@ int curlparse_render_success_result(
 
   if(sb_append(&sb, "{") != 0 ||
      sb_append(&sb, "\"ok\":true,") != 0 ||
-     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v1\",") != 0 ||
+     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v2\",") != 0 ||
      sb_append(&sb, "\"curlSourceVersion\":\"8.20.0\",") != 0 ||
      sb_append(&sb, "\"runtimeProfileApplied\":") != 0 ||
      append_runtime_profile(&sb, &input->runtime_profile) != 0 ||
@@ -1316,7 +2175,7 @@ int curlparse_render_parse_result(
 
   if(sb_append(&sb, "{") != 0 ||
      sb_appendf(&sb, "\"ok\":%s,", ok ? "true" : "false") != 0 ||
-     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v1\",") != 0 ||
+     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v2\",") != 0 ||
      sb_append(&sb, "\"curlSourceVersion\":\"8.20.0\",") != 0 ||
      sb_append(&sb, "\"runtimeProfileApplied\":") != 0 ||
      append_runtime_profile(&sb, &input->runtime_profile) != 0 ||
@@ -1404,10 +2263,10 @@ int curlparse_render_input_error_result(
 
   if(sb_append(&sb, "{") != 0 ||
      sb_append(&sb, "\"ok\":false,") != 0 ||
-     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v1\",") != 0 ||
+     sb_append(&sb, "\"schemaVersion\":\"curl-parse-output/v2\",") != 0 ||
      sb_append(&sb, "\"curlSourceVersion\":\"8.20.0\",") != 0 ||
      sb_append(&sb, "\"runtimeProfileApplied\":{") != 0 ||
-     sb_append(&sb, "\"schemaVersion\":\"curl-runtime-profile/v1\",") != 0 ||
+     sb_append(&sb, "\"schemaVersion\":\"curl-runtime-profile/v2\",") != 0 ||
      sb_append(&sb, "\"curlVersion\":\"8.20.0\",") != 0 ||
      sb_append(&sb, "\"protocols\":[],\"features\":[]},") != 0 ||
      sb_append(&sb, "\"argv\":[],\"operations\":[],\"events\":[],") != 0 ||

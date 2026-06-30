@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import http from "node:http";
 import { promisify } from "node:util";
 
 import { generateCode, listTargets, parseCurl, parseShellCommand } from "../../packages/node/dist/node.js";
 
 const execFileAsync = promisify(execFile);
+const stableDiagnosticCode = /^(E|W|I)_[A-Z0-9_]+$|^(parse-error|option-not-available|protocol-not-available|feature-not-available)$/;
 
 async function fixture(path) {
   const payload = JSON.parse(await readFile(path, "utf8"));
@@ -15,11 +16,84 @@ async function fixture(path) {
   return payload.cases;
 }
 
-function firstTransfer(parsed) {
-  assert.equal(parsed.ok, true);
+async function externalRefKinds() {
+  const schema = JSON.parse(await readFile("schemas/curl-ir.v2.schema.json", "utf8"));
+  return new Set(schema.$defs.externalRef.properties.kind.enum);
+}
+
+function firstTransfer(parsed, expectedOk = true) {
+  assert.equal(parsed.ok, expectedOk);
   const transfer = parsed.ir?.groups?.[0]?.transfers?.[0];
   assert(transfer, "missing first transfer");
   return transfer;
+}
+
+function transfers(parsed) {
+  return parsed.ir?.groups?.flatMap((group) => group.transfers ?? []) ?? [];
+}
+
+function assertPartial(actual, expected, path) {
+  if (Array.isArray(expected)) {
+    assert(Array.isArray(actual), `${path} must be array`);
+    assert(actual.length >= expected.length, `${path} length`);
+    expected.forEach((value, index) => assertPartial(actual[index], value, `${path}[${index}]`));
+    return;
+  }
+  if (expected && typeof expected === "object") {
+    assert(actual && typeof actual === "object", `${path} must be object`);
+    for (const [key, value] of Object.entries(expected)) {
+      assertPartial(actual[key], value, `${path}.${key}`);
+    }
+    return;
+  }
+  assert.deepEqual(actual, expected, path);
+}
+
+function assertDiagnosticContracts(items, name) {
+  assert(Array.isArray(items), `${name}.diagnostics`);
+  for (const diagnostic of items) {
+    assert.equal(typeof diagnostic.code, "string", `${name}.diagnostic.code`);
+    assert(stableDiagnosticCode.test(diagnostic.code), `${name}.diagnostic.code ${diagnostic.code}`);
+  }
+}
+
+function assertExternalRefContracts(parsed, allowedKinds, name) {
+  const refs = parsed.ir?.externalRefs ?? [];
+  const refIds = new Set();
+  for (const ref of refs) {
+    assert.equal(typeof ref.id, "string", `${name}.externalRefs.id`);
+    assert(allowedKinds.has(ref.kind), `${name}.externalRefs.kind ${ref.kind}`);
+    refIds.add(ref.id);
+  }
+
+  function walk(value, path) {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, `${path}[${index}]`));
+      return;
+    }
+    if (!value || typeof value !== "object") {
+      return;
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (key.endsWith("RefId") && typeof item === "string") {
+        assert(refIds.has(item), `${path}.${key} resolves`);
+      }
+      walk(item, `${path}.${key}`);
+    }
+  }
+
+  walk(parsed.ir, `${name}.ir`);
+}
+
+function assertParseOutputContracts(parsed, allowedKinds, name) {
+  assert.equal(parsed.schemaVersion, "curl-parse-output/v2", name);
+  assertDiagnosticContracts(parsed.diagnostics, name);
+  assertDiagnosticContracts(parsed.errors, name);
+  if (parsed.ir) {
+    assert.equal(parsed.ir.schemaVersion, "curl-ir/v2", name);
+    assertExternalRefContracts(parsed, allowedKinds, name);
+    assertDiagnosticContracts(parsed.ir.diagnostics, `${name}.ir`);
+  }
 }
 
 function assertIrExpectation(transfer, expected, name) {
@@ -138,6 +212,49 @@ async function testCanonicalIrFixtures() {
   }
 }
 
+async function testDomainFixtures() {
+  const allowedKinds = await externalRefKinds();
+  const entries = await readdir("fixtures/parse", { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const dir = `fixtures/parse/${entry.name}`;
+    const files = (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
+    for (const file of files) {
+      for (const testCase of await fixture(`${dir}/${file}`)) {
+        const parsed = await parseCurl(testCase.argv);
+        assertParseOutputContracts(parsed, allowedKinds, testCase.name);
+        if (Object.hasOwn(testCase.expected ?? {}, "ok")) {
+          assert.equal(parsed.ok, testCase.expected.ok, testCase.name);
+        }
+        if (testCase.expected?.errors) {
+          assertPartial(parsed.errors, testCase.expected.errors, `${testCase.name}.errors`);
+        }
+        if (testCase.expected?.externalRefs) {
+          assertPartial(
+            parsed.ir?.externalRefs,
+            testCase.expected.externalRefs,
+            `${testCase.name}.externalRefs`,
+          );
+        }
+        if (testCase.expected?.noTransfers) {
+          assert.equal(transfers(parsed).length, 0, `${testCase.name}.transfers`);
+          continue;
+        }
+        const transfer = firstTransfer(parsed, testCase.expected?.ok ?? true);
+        if (testCase.expected?.effective) {
+          assertPartial(
+            transfer.effective,
+            testCase.expected.effective,
+            `${testCase.name}.effective`,
+          );
+        }
+      }
+    }
+  }
+}
+
 async function testCodegenFixtures() {
   const targets = new Set(listTargets());
   for (const testCase of await fixture("fixtures/codegen/golden.json")) {
@@ -171,6 +288,7 @@ async function testSupportFixtures() {
 
 await testShellFixtures();
 await testCanonicalIrFixtures();
+await testDomainFixtures();
 await testCodegenFixtures();
 await testReplayFixtures();
 await testSupportFixtures();

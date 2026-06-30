@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "follow redirects with max and timeouts",
+      "argv": [
+        "curl",
+        "--location",
+        "--max-redirs",
+        "3",
+        "--connect-timeout",
+        "2.5",
+        "--max-time",
+        "5",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "redirects": { "follow": true, "max": 3 },
+          "timeouts": { "connectTimeoutMs": 2500, "maxTimeMs": 5000 }
+        }
+      }
+    }
+  ]
+}

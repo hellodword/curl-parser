@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "http2 prior knowledge",
+      "argv": ["curl", "--http2-prior-knowledge", "https://example.com"],
+      "expected": {
+        "effective": {
+          "httpVersion": {
+            "value": "2",
+            "policy": "prior-knowledge",
+            "source": "flag"
+          }
+        }
+      }
+    },
+    {
+      "name": "http3 only",
+      "argv": ["curl", "--http3-only", "https://example.com"],
+      "expected": {
+        "effective": {
+          "httpVersion": {
+            "value": "3",
+            "policy": "only",
+            "source": "flag"
+          }
+        }
+      }
+    }
+  ]
+}

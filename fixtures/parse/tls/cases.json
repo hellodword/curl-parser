@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "tls files and version bounds",
+      "argv": [
+        "curl",
+        "--cacert",
+        "ca.pem",
+        "--cert",
+        "client.pem",
+        "--key",
+        "client.key",
+        "--tlsv1.2",
+        "--tls-max",
+        "1.3",
+        "-k",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "tls": {
+            "verify": false,
+            "caFileRefId": "external-0",
+            "clientCertRefId": "external-1",
+            "clientKeyRefId": "external-2",
+            "minVersion": "1.2",
+            "maxVersion": "1.3"
+          }
+        },
+        "externalRefs": [
+          { "id": "external-0", "kind": "tls-ca-file", "value": "ca.pem" },
+          { "id": "external-1", "kind": "tls-client-cert", "value": "client.pem" },
+          { "id": "external-2", "kind": "tls-client-key", "value": "client.key" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "unix socket path becomes connect external ref",
+      "argv": ["curl", "--unix-socket", "/tmp/app.sock", "https://example.com"],
+      "expected": {
+        "effective": {
+          "network": {
+            "unixSocketRefId": "external-0"
+          }
+        },
+        "externalRefs": [
+          {
+            "id": "external-0",
+            "kind": "unix-socket",
+            "access": "connect",
+            "option": "--unix-socket",
+            "value": "/tmp/app.sock",
+            "source": { "source": "argv", "argvIndex": 2, "start": 0, "end": 13 }
+          }
+        ]
+      }
+    }
+  ]
+}

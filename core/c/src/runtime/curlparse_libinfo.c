@@ -8,6 +8,7 @@ static const char *no_features = NULL;
 
 static const char **runtime_protocols = NULL;
 static const char **runtime_features = NULL;
+static curl_version_info_data runtime_curlinfo;
 
 curl_version_info_data *curlinfo = NULL;
 const char * const *built_in_protos = &no_protos;
@@ -84,6 +85,43 @@ static void clear_feature_flags(void)
   feature_ssls_export = FALSE;
 }
 
+static int feature_bit(
+  const struct CurlparseProfile *profile,
+  const char *name,
+  int bit
+)
+{
+  return curlparse_profile_has_feature(profile, name) ? bit : 0;
+}
+
+static int profile_feature_bits(const struct CurlparseProfile *profile)
+{
+  return
+    feature_bit(profile, "IPv6", CURL_VERSION_IPV6) |
+    feature_bit(profile, "SSL", CURL_VERSION_SSL) |
+    feature_bit(profile, "libz", CURL_VERSION_LIBZ) |
+    feature_bit(profile, "NTLM", CURL_VERSION_NTLM) |
+    feature_bit(profile, "DEBUGBUILD", CURL_VERSION_DEBUG) |
+    feature_bit(profile, "AsynchDNS", CURL_VERSION_ASYNCHDNS) |
+    feature_bit(profile, "SPNEGO", CURL_VERSION_SPNEGO) |
+    feature_bit(profile, "Largefile", CURL_VERSION_LARGEFILE) |
+    feature_bit(profile, "IDN", CURL_VERSION_IDN) |
+    feature_bit(profile, "TLS-SRP", CURL_VERSION_TLSAUTH_SRP) |
+    feature_bit(profile, "NTLM_WB", CURL_VERSION_NTLM_WB) |
+    feature_bit(profile, "HTTP2", CURL_VERSION_HTTP2) |
+    feature_bit(profile, "GSS-API", CURL_VERSION_GSSAPI) |
+    feature_bit(profile, "Kerberos", CURL_VERSION_KERBEROS5) |
+    feature_bit(profile, "UnixSockets", CURL_VERSION_UNIX_SOCKETS) |
+    feature_bit(profile, "PSL", CURL_VERSION_PSL) |
+    feature_bit(profile, "HTTPS-proxy", CURL_VERSION_HTTPS_PROXY) |
+    feature_bit(profile, "brotli", CURL_VERSION_BROTLI) |
+    feature_bit(profile, "alt-svc", CURL_VERSION_ALTSVC) |
+    feature_bit(profile, "HTTP3", CURL_VERSION_HTTP3) |
+    feature_bit(profile, "zstd", CURL_VERSION_ZSTD) |
+    feature_bit(profile, "HSTS", CURL_VERSION_HSTS) |
+    feature_bit(profile, "threadsafe", CURL_VERSION_THREADSAFE);
+}
+
 static bool profile_has_feature(
   const struct CurlparseProfile *profile,
   const char *name
@@ -137,6 +175,7 @@ void curlparse_reset_libinfo(void)
   runtime_features = NULL;
 
   curlinfo = NULL;
+  memset(&runtime_curlinfo, 0, sizeof(runtime_curlinfo));
   built_in_protos = &no_protos;
   proto_count = 0;
   feature_names = &no_features;
@@ -173,6 +212,19 @@ void curlparse_apply_libinfo_profile(const struct CurlparseProfile *profile)
   proto_count = profile->protocol_count;
   feature_names = runtime_features ? runtime_features : &no_features;
   feature_count = profile->feature_count;
+
+  runtime_curlinfo.age = CURLVERSION_NOW;
+  runtime_curlinfo.version = profile->curl_version;
+  runtime_curlinfo.features = profile_feature_bits(profile);
+  runtime_curlinfo.protocols = built_in_protos;
+  runtime_curlinfo.feature_names = feature_names;
+  runtime_curlinfo.ares = profile_has_feature(profile, "AsynchDNS") ?
+    "c-ares" : NULL;
+  runtime_curlinfo.ares_num = profile_has_feature(profile, "AsynchDNS") ?
+    0x010000 : 0;
+  runtime_curlinfo.ssl_version = profile_has_feature(profile, "SSL") ?
+    "profile-ssl" : NULL;
+  curlinfo = &runtime_curlinfo;
 
   proto_file = find_protocol_token("file");
   proto_ftp = find_protocol_token("ftp");

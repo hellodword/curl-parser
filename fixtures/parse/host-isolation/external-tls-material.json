@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "tls material becomes read external refs",
+      "argv": [
+        "curl",
+        "--cacert",
+        "ca.pem",
+        "--cert",
+        "client.pem",
+        "--key",
+        "client.key",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "tls": {
+            "caFileRefId": "external-0",
+            "clientCertRefId": "external-1",
+            "clientKeyRefId": "external-2"
+          }
+        },
+        "externalRefs": [
+          {
+            "id": "external-0",
+            "kind": "tls-ca-file",
+            "access": "read",
+            "option": "--cacert",
+            "value": "ca.pem",
+            "source": { "source": "argv", "argvIndex": 2, "start": 0, "end": 6 }
+          },
+          {
+            "id": "external-1",
+            "kind": "tls-client-cert",
+            "access": "read",
+            "option": "--cert",
+            "value": "client.pem",
+            "source": { "source": "argv", "argvIndex": 4, "start": 0, "end": 10 }
+          },
+          {
+            "id": "external-2",
+            "kind": "tls-client-key",
+            "access": "read",
+            "option": "--key",
+            "value": "client.key",
+            "source": { "source": "argv", "argvIndex": 6, "start": 0, "end": 10 }
+          }
+        ]
+      }
+    }
+  ]
+}

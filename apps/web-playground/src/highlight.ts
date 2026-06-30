@@ -19,7 +19,7 @@ function getHighlighter(): Promise<HighlighterGeneric<PlaygroundLanguage, Playgr
 }
 
 export function languageForFile(path: string, target: Target): PlaygroundLanguage {
-  if (path.endsWith(".py") || target === "python.requests") {
+  if (path.endsWith(".py") || target === "python.requests" || target === "python.httpx") {
     return "python";
   }
   if (path.endsWith(".go") || target === "go.net_http") {
@@ -28,7 +28,7 @@ export function languageForFile(path: string, target: Target): PlaygroundLanguag
   if (path.endsWith(".rs") || target === "rust.reqwest") {
     return "rust";
   }
-  if (path.endsWith(".c") || path.endsWith(".h") || target === "c.libcurl") {
+  if (path.endsWith(".c") || path.endsWith(".h")) {
     return "c";
   }
   if (path.endsWith(".toml") || path === "Cargo.toml") {

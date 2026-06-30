@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "python.requests",
+  "argv": [
+    "curl",
+    "--http2",
+    "https://example.com"
+  ],
+  "support": "lossy",
+  "diagnostic": "W_TARGET_LOSSY"
+}

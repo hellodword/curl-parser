@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-parse-input/v1",
+  "schemaVersion": "curl-parse-input/v2",
   "inputMode": "argv",
   "argv": ["curl", "--data", "@secret.txt", "https://example.com"]
 }

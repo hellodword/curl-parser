@@ -2,19 +2,19 @@
   "schemaVersion": "curl-parser-fixtures/v1",
   "cases": [
     {
-      "name": "libcurl header",
-      "target": "c.libcurl",
+      "name": "httpx header",
+      "target": "python.httpx",
       "argv": ["curl", "-H", "x-test: yes", "https://example.com"],
-      "files": ["main.c"],
-      "contains": ["curl_easy_setopt", "x-test: yes"],
+      "files": ["main.py"],
+      "contains": ["import httpx", "x-test"],
       "support": "exact"
     },
     {
-      "name": "libcurl ftp hostname prefix",
-      "target": "c.libcurl",
-      "argv": ["curl", "ftp.example.com/README"],
-      "files": ["main.c"],
-      "contains": ["CURLOPT_URL", "ftp://ftp.example.com/README"],
+      "name": "axios body",
+      "target": "js.axios",
+      "argv": ["curl", "--data-raw", "hello", "https://example.com"],
+      "files": ["main.mjs"],
+      "contains": ["import axios", "axios.request", "data = \"hello\""],
       "support": "exact"
     },
     {

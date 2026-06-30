@@ -1,0 +1,10 @@
+{
+  "inputMode": "argv",
+  "argv": [
+    "curl",
+    "--unix-socket",
+    "/tmp/app.sock",
+    "https://example.com"
+  ],
+  "schemaVersion": "curl-parse-input/v2"
+}

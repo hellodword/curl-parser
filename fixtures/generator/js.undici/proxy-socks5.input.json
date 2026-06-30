@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.undici",
+  "argv": [
+    "curl",
+    "--socks5-hostname",
+    "socks.example:1080",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "Socks5ProxyAgent",
+    "\"socks5://socks.example:1080\"",
+    "dispatcher: proxyAgent"
+  ]
+}

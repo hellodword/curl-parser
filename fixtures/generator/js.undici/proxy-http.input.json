@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.undici",
+  "argv": [
+    "curl",
+    "--proxy",
+    "http://proxy.example:8080",
+    "--proxy-header",
+    "X-Proxy: yes",
+    "--proxy-user",
+    "proxy-user:proxy-pass",
+    "--proxytunnel",
+    "-L",
+    "--max-redirs",
+    "3",
+    "--max-time",
+    "5",
+    "https://example.com"
+  ],
+  "support": "exact",
+  "contains": [
+    "new ProxyAgent({",
+    "token: \"Basic REDACTED\"",
+    "\"X-Proxy\": \"yes\"",
+    "proxyTunnel: true",
+    "dispatcher: proxyAgent"
+  ],
+  "notContains": [
+    "Proxy-Authorization",
+    "headers.authorization"
+  ]
+}

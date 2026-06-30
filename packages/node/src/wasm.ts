@@ -1,7 +1,8 @@
-import type { GenerateInput, GenerateOutput, ParseInput, ParseOutput } from "./types.js";
+import type { ParseInput, ParseOutput } from "./types.js";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const EXPECTED_ABI_VERSION = 2;
 
 export class CurlParserError extends Error {
   readonly code: string;
@@ -17,18 +18,13 @@ export class CurlParserError extends Error {
 
 type WasmExports = WebAssembly.Exports & {
   memory: WebAssembly.Memory;
+  curlparse_abi_version(): number;
   curlparse_alloc(size: number): number;
   curlparse_free(ptr: number, len: number): void;
   curlparse_buf_free?(ptr: number, len: number): void;
   curlparse_engine_new(): number;
   curlparse_engine_free(engine: number): void;
   curlparse_parse_json(engine: number, inputPtr: number, inputLen: number, outPairPtr: number): number;
-  curlparse_generate_json(
-    engine: number,
-    inputPtr: number,
-    inputLen: number,
-    outPairPtr: number,
-  ): number;
 };
 
 function isInstantiatedSource(
@@ -81,6 +77,19 @@ export class CurlParserWasm {
   constructor(instance: WebAssembly.Instance) {
     this.instance = instance;
     this.exports = exportsOf(instance);
+
+    if (
+      typeof this.exports.curlparse_abi_version !== "function" ||
+      this.exports.curlparse_abi_version() !== EXPECTED_ABI_VERSION
+    ) {
+      throw new CurlParserError("Unsupported curlparse Wasm ABI version", {
+        code: "E_WASM_ABI_VERSION",
+        abiCode: typeof this.exports.curlparse_abi_version === "function"
+          ? this.exports.curlparse_abi_version()
+          : undefined,
+      });
+    }
+
     this.engineHandle = this.exports.curlparse_engine_new();
 
     if (!this.engineHandle) {
@@ -114,7 +123,7 @@ export class CurlParserWasm {
     }
   }
 
-  private callJson<T>(functionName: "curlparse_parse_json" | "curlparse_generate_json", input: unknown): T {
+  private callJson<T>(functionName: "curlparse_parse_json", input: unknown): T {
     this.ensureOpen();
 
     const parseFn = this.exports[functionName];
@@ -156,10 +165,6 @@ export class CurlParserWasm {
 
   parse(input: ParseInput): ParseOutput {
     return this.callJson<ParseOutput>("curlparse_parse_json", input);
-  }
-
-  generate(input: GenerateInput): GenerateOutput {
-    return this.callJson<GenerateOutput>("curlparse_generate_json", input);
   }
 
   dispose(): void {

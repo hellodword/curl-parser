@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "curl-parser-generator-fixture/v1",
+  "target": "js.axios",
+  "argv": [
+    "curl",
+    "-k",
+    "--cacert",
+    "ca.pem",
+    "--cert",
+    "client.pem",
+    "--key",
+    "client.key",
+    "https://example.com"
+  ],
+  "support": "requires-runtime-helper",
+  "contains": [
+    "new https.Agent({",
+    "rejectUnauthorized: false",
+    "ca: await readFile(\"ca.pem\")",
+    "cert: await readFile(\"client.pem\")",
+    "key: await readFile(\"client.key\")"
+  ]
+}

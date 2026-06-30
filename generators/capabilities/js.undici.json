@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "curl-target-capabilities/v1",
+  "schemaVersion": "curl-target-capabilities/v2",
   "target": "js.undici",
   "library": {
     "name": "undici",
@@ -8,60 +8,114 @@
   },
   "behaviors": {
     "url": {
+      "id": "url",
       "capability": "native",
       "message": "undici accepts request URLs directly."
     },
+    "url.scheme": {
+      "id": "url.scheme",
+      "capability": "unsupported",
+      "message": "Target only supports HTTP(S) request URLs."
+    },
     "method": {
+      "id": "method",
       "capability": "native",
       "message": "undici supports explicit HTTP methods."
     },
     "headers": {
+      "id": "headers",
       "capability": "native",
-      "message": "undici supports request headers."
+      "message": "undici supports request headers.",
+      "unsafeWhen": "Duplicate header names may be coalesced by generated JavaScript header structures."
     },
     "body.raw": {
+      "id": "body.raw",
       "capability": "native",
       "message": "undici supports raw request bodies."
     },
     "body.multipart": {
+      "id": "body.multipart",
       "capability": "native",
       "message": "undici supports multipart bodies through FormData."
     },
     "auth.basic": {
+      "id": "auth.basic",
       "capability": "native",
       "message": "undici can send basic auth through the Authorization header."
     },
     "cookies.inline": {
+      "id": "cookies.inline",
       "capability": "native",
       "message": "undici can send explicit Cookie headers."
     },
+    "cookies.jar": {
+      "id": "cookies.jar",
+      "capability": "unsupported",
+      "message": "undici target does not load curl cookie jar files."
+    },
     "proxy": {
-      "capability": "requires-runtime-helper",
-      "message": "undici proxy support uses runtime wiring through ProxyAgent."
+      "id": "proxy",
+      "capability": "native",
+      "message": "undici proxy support uses ProxyAgent or Socks5ProxyAgent dispatchers.",
+      "requiredDependency": "undici ProxyAgent"
     },
     "tls.verify": {
+      "id": "tls.verify",
       "capability": "native",
       "message": "undici Agent can represent TLS verification settings."
     },
+    "tls.ca": {
+      "id": "tls.ca",
+      "capability": "native",
+      "message": "undici Agent and ProxyAgent requestTls options can represent request TLS CA settings."
+    },
+    "tls.client-cert": {
+      "id": "tls.client-cert",
+      "capability": "native",
+      "message": "undici Agent and ProxyAgent requestTls options can represent TLS client certificate settings."
+    },
+    "network": {
+      "id": "network",
+      "capability": "requires-runtime-helper",
+      "message": "undici requires custom connector wiring to preserve curl network binding or connection routing.",
+      "requiredRuntime": "Caller-provided Undici connector/dispatcher."
+    },
+    "dns": {
+      "id": "dns",
+      "capability": "requires-runtime-helper",
+      "message": "undici requires custom connector wiring to preserve curl DNS resolver overrides.",
+      "requiredRuntime": "Caller-provided Undici connector/dispatcher."
+    },
     "redirects": {
+      "id": "redirects",
       "capability": "native",
       "message": "undici supports redirect behavior through request options."
     },
     "timeout": {
+      "id": "timeout",
       "capability": "native",
       "message": "undici supports request timeout options."
     },
     "http.version.2": {
+      "id": "http.version.2",
       "capability": "unsupported",
       "message": "undici does not expose curl-style HTTP/2 selection."
     },
     "http.version.3": {
+      "id": "http.version.3",
       "capability": "unsupported",
       "message": "undici does not expose HTTP/3 selection."
     },
+    "debug": {
+      "id": "debug",
+      "capability": "lossy",
+      "message": "undici output cannot reproduce curl verbose or trace wire dumps."
+    },
     "external-ref": {
+      "id": "external-ref",
       "capability": "requires-runtime-helper",
-      "message": "Generated code must provide runtime handling for external references."
+      "message": "Generated code must provide runtime handling for external references.",
+      "requiredRuntime": "Node.js filesystem access to referenced inputs."
     }
   }
 }

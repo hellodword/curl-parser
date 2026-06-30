@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "curl-parser-fixtures/v1",
+  "cases": [
+    {
+      "name": "trace and header outputs",
+      "argv": [
+        "curl",
+        "--trace-ascii",
+        "trace.txt",
+        "--trace-config",
+        "ids,time,protocol",
+        "--trace-ids",
+        "--trace-time",
+        "--dump-header",
+        "headers.txt",
+        "https://example.com"
+      ],
+      "expected": {
+        "effective": {
+          "debug": {
+            "traceFormat": "ascii",
+            "traceOutputRefId": "external-0",
+            "traceConfig": "ids,time,protocol",
+            "traceIds": true,
+            "traceTime": true,
+            "headerOutputRefId": "external-1"
+          }
+        },
+        "externalRefs": [
+          { "id": "external-0", "kind": "trace-output", "value": "trace.txt" },
+          { "id": "external-1", "kind": "header-output", "value": "headers.txt" }
+        ]
+      }
+    }
+  ]
+}

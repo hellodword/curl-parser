@@ -18,51 +18,35 @@ Canonical source roots:
 - `config`: repository metadata consumed by build and release tools.
 
 Generated files are local artifacts under `build/`, `dist/`, or package artifact
-directories ignored by git. Run `python scripts/tasks.py generate` before
-building from a fresh checkout.
+directories ignored by git. Run `nix develop --command python scripts/tasks.py generate`
+before building from a fresh checkout.
 
 ## Environment
 
-The task graph is the same in Nix and non-Nix environments. Nix only pins and
-provides tools.
-
-Nix environment:
+Nix is the trusted development entrypoint. Run build, generation, test, package,
+and size tasks through the dev shell:
 
 ```bash
-nix develop
-python scripts/tasks.py doctor
-python scripts/tasks.py bootstrap
-python scripts/tasks.py generate
-python scripts/tasks.py build-native
-python scripts/tasks.py build-wasm
-python scripts/tasks.py test
+nix develop --command python scripts/tasks.py doctor
+nix develop --command python scripts/tasks.py bootstrap
+nix develop --command python scripts/tasks.py generate
+nix develop --command python scripts/tasks.py build-native
+nix develop --command python scripts/tasks.py build-wasm
+nix develop --command python scripts/tasks.py test
 ```
 
-Non-Nix environment:
-
-- Python 3.10 or newer.
-- Node.js 20 or newer.
-- TypeScript compiler (`tsc`).
-- Git.
-- Zig, or another C compiler usable through `CC` and `WASM_CC`.
-
-Then run the same task commands:
+For compound commands, enter the dev shell once:
 
 ```bash
-python scripts/tasks.py doctor
-python scripts/tasks.py bootstrap
-python scripts/tasks.py generate
-python scripts/tasks.py build-native
-python scripts/tasks.py build-wasm
-python scripts/tasks.py test
+nix develop --command bash -lc 'python scripts/tasks.py generate && python scripts/tasks.py test'
 ```
 
-The default compiler command is `zig cc` for both native and wasm builds. To
-override it:
+The dev shell sets the default compiler command to `zig cc` for both native and
+wasm builds. To test a compiler override, pass it through `nix develop`:
 
 ```bash
-CC=clang python scripts/tasks.py build-native
-WASM_CC="zig cc" python scripts/tasks.py build-wasm
+nix develop --command bash -lc 'CC=clang python scripts/tasks.py build-native'
+nix develop --command bash -lc 'WASM_CC="zig cc" python scripts/tasks.py build-wasm'
 ```
 
 ## Build Tasks
@@ -72,14 +56,14 @@ All build entrypoints live in `scripts/tasks.py`.
 Standard local build:
 
 ```bash
-python scripts/tasks.py doctor
-python scripts/tasks.py bootstrap
-python scripts/tasks.py generate
-python scripts/tasks.py build-native
-python scripts/tasks.py build-native-shared
-python scripts/tasks.py build-wasm
-python scripts/tasks.py build-web
-python scripts/tasks.py test
+nix develop --command python scripts/tasks.py doctor
+nix develop --command python scripts/tasks.py bootstrap
+nix develop --command python scripts/tasks.py generate
+nix develop --command python scripts/tasks.py build-native
+nix develop --command python scripts/tasks.py build-native-shared
+nix develop --command python scripts/tasks.py build-wasm
+nix develop --command python scripts/tasks.py build-web
+nix develop --command python scripts/tasks.py test
 ```
 
 Task reference:
@@ -131,12 +115,20 @@ ignored by git.
 When the Wasm changes, rebuild the Node package artifacts with:
 
 ```bash
-python scripts/tasks.py build-wasm
-python scripts/build/build_node_package.py
+nix develop --command python scripts/tasks.py build-wasm
+nix develop --command python scripts/build/build_node_package.py
 ```
 
 `lint` and `release-check` rebuild the package-local copy from
 `dist/curl_parser.wasm`.
+
+The current `158000` byte size budget is for the parse-only Wasm ABI plus the
+expanded IR v2 parse result renderer. The main growth versus the earlier
+baseline comes from serializing proxy, TLS, network, DNS, debug, HTTP version,
+external reference, and runtime profile fields in parse output. The `size` task
+also checks the Wasm export table and string payload for generator residue, so
+the budget is not a substitute for keeping code generation out of the Wasm
+module.
 
 ## Web Playground
 
@@ -147,9 +139,9 @@ there is no root npm workspace.
 Build the Wasm first, then install and run the app:
 
 ```bash
-python scripts/tasks.py build-wasm
-npm --prefix apps/web-playground ci
-npm --prefix apps/web-playground run dev
+nix develop --command python scripts/tasks.py build-wasm
+nix develop --command npm --prefix apps/web-playground ci
+nix develop --command npm --prefix apps/web-playground run dev
 ```
 
 The playground imports `@hellodword/curl-parser/browser` through a Vite alias
@@ -165,7 +157,7 @@ committed `packages/node/dist` files. Its Wasm asset comes from root
 - Runtime protocol and feature behavior is modeled through `runtimeProfile`, not
   through host libcurl.
 - Guard metadata is regenerated from curl `docs/cmdline-opts/*.md` with
-  `python scripts/tasks.py generate`.
+  `nix develop --command python scripts/tasks.py generate`.
 - Stub contract headers are regenerated from
   `core/c/src/runtime/stub-contracts.json`; the JSON and tests are the source of
   truth.
@@ -190,19 +182,19 @@ committed `packages/node/dist` files. Its Wasm asset comes from root
 ## Standard Checks
 
 ```bash
-python scripts/tasks.py bootstrap
-python scripts/tasks.py generate
-python scripts/tasks.py lint
-python scripts/tasks.py test
-python scripts/tasks.py size --budget 141000
+nix develop --command python scripts/tasks.py bootstrap
+nix develop --command python scripts/tasks.py generate
+nix develop --command python scripts/tasks.py lint
+nix develop --command python scripts/tasks.py test
+nix develop --command python scripts/tasks.py size --budget 158000
 ```
 
-Use `FUZZ_CASES=10000 python scripts/tasks.py test` before release if fuzz
-coverage should match release depth.
+Use `nix develop --command bash -lc 'FUZZ_CASES=10000 python scripts/tasks.py test'`
+before release if fuzz coverage should match release depth.
 
 ## Curl Upgrade
 
-1. Run `python scripts/curl/upgrade_curl_version.py --new-tag curl-x_y_z`.
+1. Run `nix develop --command python scripts/curl/upgrade_curl_version.py --new-tag curl-x_y_z`.
 2. Inspect the generated upgrade report.
 3. Review added or removed source files, options, guards, `OperationConfig`
    fields, and `tool_libinfo` protocol/feature state.
@@ -210,5 +202,5 @@ coverage should match release depth.
 
 The curl source is downloaded by `scripts/curl/vendor_curl.py` according to
 `config/curl-source.json`. Keep local source inventory changes generated by
-`python scripts/tasks.py generate`; do not hand-edit response files except when
-debugging a regeneration failure.
+`nix develop --command python scripts/tasks.py generate`; do not hand-edit response
+files except when debugging a regeneration failure.
